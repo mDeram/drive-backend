@@ -1,0 +1,3 @@
+#!/bin/sh
+
+pnpm i --production=false --frozen-lockfile && pnpm run build && pm2 reload cloud-backend && echo "Deployed" || echo "Error"
