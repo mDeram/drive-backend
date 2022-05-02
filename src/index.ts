@@ -9,6 +9,7 @@ import session from "express-session";
 import { SESSION_COOKIE, ___prod___ } from "./constants";
 import connectRedis from "connect-redis";
 import Redis from "ioredis";
+import { graphqlUploadExpress } from "graphql-upload";
 
 const main = async () => {
     //const orm = await createConnection(typeormConfig);
@@ -40,12 +41,16 @@ const main = async () => {
     await apolloServer.start();
 
     const frontUrl = process.env.FRONT_URL || "";
+    const corsOptions = {
+        origin: ["http://localhost:3000", frontUrl],
+        credentials: true
+    };
+
+    app.use(graphqlUploadExpress());
+
     apolloServer.applyMiddleware({
         app,
-        cors: {
-            origin: ["http://localhost:3000", frontUrl],
-            credentials: true
-        }
+        cors: corsOptions
     });
 
     const port = process.env.PORT || 3000;
