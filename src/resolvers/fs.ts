@@ -4,22 +4,14 @@ import pathLib from "path";
 import { FileUpload, GraphQLUpload } from "graphql-upload";
 import { finished } from "stream/promises";
 import DirectoryItem from "../entities/DirectoryItem";
-const drivePath = "/home/matutu/Development/cloud/drive";
-
-function getFinalPathIfValid(base: string, addition: string): (string | undefined) {
-    //fs.realpath ??
-    const finalPath = pathLib.join(base, addition);
-    if (!finalPath.startsWith(base))
-        return;
-    return finalPath;
-}
+import getFinalPathIfAllowed from "../utils/getFinalPathIfAllowed";
 
 export default class FsResolver {
     @Query(() => [DirectoryItem])
     async ls(
         @Arg("path", { defaultValue: "" }) searchPath: string
     ): Promise<DirectoryItem[]> {
-        const finalPath = getFinalPathIfValid(drivePath, searchPath);
+        const finalPath = getFinalPathIfAllowed(searchPath);
         if (!finalPath) return []; // Should return an error
 
         const content = await fs.readdir(finalPath, { withFileTypes: true })
@@ -34,7 +26,7 @@ export default class FsResolver {
         @Arg("paths", type => [String]) paths: string[]
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (deletePath) => {
-            const finalPath = getFinalPathIfValid(drivePath, deletePath);
+            const finalPath = getFinalPathIfAllowed(deletePath);
             if (!finalPath) return false;
             try {
                 await fs.rm(finalPath, { recursive: true });
@@ -53,7 +45,7 @@ export default class FsResolver {
     ): Promise<boolean> {
         const { createReadStream, filename, mimetype, encoding } = await file;
 
-        const outPath = getFinalPathIfValid(drivePath, pathLib.join(uploadPath, filename));
+        const outPath = getFinalPathIfAllowed(pathLib.join(uploadPath, filename));
         if (!outPath) return false;
 
         const stream = createReadStream();
@@ -74,7 +66,7 @@ export default class FsResolver {
     async mkdir(
         @Arg("dirname") dirname: string
     ): Promise<boolean> {
-        const finalPath = getFinalPathIfValid(drivePath, dirname);
+        const finalPath = getFinalPathIfAllowed(dirname);
         if (!finalPath) return false;
 
         try {

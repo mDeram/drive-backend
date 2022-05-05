@@ -10,6 +10,8 @@ import { SESSION_COOKIE, ___prod___ } from "./constants";
 import connectRedis from "connect-redis";
 import Redis from "ioredis";
 import { graphqlUploadExpress } from "graphql-upload";
+import cors from "cors";
+import getFinalPathIfAllowed from "./utils/getFinalPathIfAllowed";
 
 const main = async () => {
     //const orm = await createConnection(typeormConfig);
@@ -45,6 +47,36 @@ const main = async () => {
         origin: ["http://localhost:3000", frontUrl],
         credentials: true
     };
+
+    app.use(cors(corsOptions));
+
+    app.get('/files/:name([^/]*)', function(req, res){
+        //if(!req.query.user){
+        //const username = req.query.userId;
+        const finalPath = getFinalPathIfAllowed(req.params.name);
+        if (!finalPath) {
+            res.send("not allowed");
+            return;
+        }
+
+        res.sendFile(finalPath, { dotfiles: "allow" });
+        /*} else {
+            res.send("not allowed");
+        } */
+    });
+
+    app.get('/download/:name([^/]*)', function(req, res){
+        const finalPath = getFinalPathIfAllowed(req.params.name);
+        if (!finalPath) {
+            res.send("not allowed");
+            return;
+        }
+
+        res.download(req.params.name, req.params.name, { root: '../drive/', dotfiles: "allow" });
+        /*} else {
+            res.send("not allowed");
+        } */
+    });
 
     app.use(graphqlUploadExpress());
 
