@@ -41,12 +41,16 @@ export default class FsResolver {
     @Mutation(() => Boolean)
     async upload(
         @Arg("path", { defaultValue: "" }) uploadPath: string,
+        @Arg("additionalPath", { defaultValue: "" }) additionalPath: string,
         @Arg("file", type => GraphQLUpload) file: FileUpload
     ): Promise<boolean> {
         const { createReadStream, filename, mimetype, encoding } = await file;
 
-        const outPath = getFinalPathIfAllowed(pathLib.join(uploadPath, filename));
-        if (!outPath) return false;
+        const outPath = getFinalPathIfAllowed(pathLib.join(uploadPath, additionalPath, filename));
+        const dirPath = getFinalPathIfAllowed(pathLib.join(uploadPath, additionalPath));
+        if (!outPath || !dirPath) return false;
+
+        await fs.mkdir(dirPath, { recursive: true });
 
         const stream = createReadStream();
         const out = syncFs.createWriteStream(outPath);

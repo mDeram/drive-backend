@@ -12,6 +12,8 @@ import Redis from "ioredis";
 import { graphqlUploadExpress } from "graphql-upload";
 import cors from "cors";
 import getFinalPathIfAllowed from "./utils/getFinalPathIfAllowed";
+import { promises as fs } from "fs";
+import archiver from "archiver";
 
 const main = async () => {
     //const orm = await createConnection(typeormConfig);
@@ -50,32 +52,61 @@ const main = async () => {
 
     app.use(cors(corsOptions));
 
-    app.get('/files/:name([^/]*)', function(req, res){
+    app.get('/files/:name([^/]*)', (req, res) => {
         //if(!req.query.user){
         //const username = req.query.userId;
         const finalPath = getFinalPathIfAllowed(req.params.name);
         if (!finalPath) {
-            res.send("not allowed");
+            res.end();
             return;
         }
 
         res.sendFile(finalPath, { dotfiles: "allow" });
         /*} else {
-            res.send("not allowed");
+            res.end();
         } */
     });
 
-    app.get('/download/:name([^/]*)', function(req, res){
-        const finalPath = getFinalPathIfAllowed(req.params.name);
+    app.get('/download/:name([^/]*)', async (req, res) => {
+        const isFolder = req.query.folder;
+        let name = req.params.name;
+
+        // Remove .zip on folders
+        if (isFolder) name = name.slice(0, -4);
+
+        const finalPath = getFinalPathIfAllowed(name);
         if (!finalPath) {
-            res.send("not allowed");
+            res.end();
             return;
         }
 
-        res.download(req.params.name, req.params.name, { root: '../drive/', dotfiles: "allow" });
-        /*} else {
-            res.send("not allowed");
-        } */
+        let stats;
+        try {
+            stats = await fs.stat(finalPath);
+        } catch(e) {
+            console.error(e)
+            res.end();
+            return;
+        }
+
+        if (!isFolder && stats.isFile()) {
+            res.download(finalPath, req.params.name, { dotfiles: "allow" });
+            return;
+        }
+
+        if (isFolder && stats.isDirectory()) {
+            const archive = archiver("zip");
+            archive.on("error", (e: any) => {
+                console.error(e)
+                res.end();
+            });
+            archive.pipe(res);
+            archive.directory(finalPath, name);
+            archive.finalize();
+            return;
+        }
+
+        res.end();
     });
 
     app.use(graphqlUploadExpress());
