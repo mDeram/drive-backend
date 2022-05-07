@@ -1,10 +1,13 @@
-import { Arg, Mutation, Query } from "type-graphql";
+import { Arg, Int, Mutation, Query } from "type-graphql";
 import syncFs, { promises as fs } from "fs";
 import pathLib from "path";
 import { FileUpload, GraphQLUpload } from "graphql-upload";
 import { finished } from "stream/promises";
 import DirectoryItem from "../entities/DirectoryItem";
 import getFinalPathIfAllowed from "../utils/getFinalPathIfAllowed";
+import { exec } from "child_process";
+import { promisify } from "util";
+const execAsync = promisify(exec);
 
 export default class FsResolver {
     @Query(() => [DirectoryItem])
@@ -79,6 +82,24 @@ export default class FsResolver {
             return false;
         }
         return true;
+    }
+
+    @Query(() => Int)
+    async diskUsage(): Promise<number | undefined> {
+        const finalPath = getFinalPathIfAllowed();
+        if (!finalPath) return;
+
+        try {
+            const { stdout, stderr } = await execAsync(`du -s ${finalPath} | cut -f1`);
+            if (stderr) {
+                console.error(stderr);
+                return;
+            }
+            return parseInt(stdout);
+        } catch(e) {
+            console.error(e);
+            return;
+        }
     }
 
 }
