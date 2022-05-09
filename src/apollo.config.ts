@@ -8,11 +8,12 @@ import {
 
 import { MyContext } from "./types";
 import FsResolver from "./resolvers/fs";
+import UserResolver from "./resolvers/user";
 
 export default (async (): Promise<Config> => {
     return {
         schema: await buildSchema({
-            resolvers: [FsResolver],
+            resolvers: [FsResolver, UserResolver],
         }),
         plugins: [
             ___prod___
