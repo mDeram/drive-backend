@@ -11,9 +11,7 @@ import connectRedis from "connect-redis";
 import Redis from "ioredis";
 import { graphqlUploadExpress } from "graphql-upload";
 import cors from "cors";
-import getFinalPathIfAllowed from "./utils/getFinalPathIfAllowed";
-import { promises as fs } from "fs";
-import archiver from "archiver";
+import fsApi from "./api/fs";
 
 const main = async () => {
     //const orm = await createConnection(typeormConfig);
@@ -52,62 +50,7 @@ const main = async () => {
 
     app.use(cors(corsOptions));
 
-    app.get('/files/:name([^/]*)', (req, res) => {
-        //if(!req.query.user){
-        //const username = req.query.userId;
-        const finalPath = getFinalPathIfAllowed(req.params.name);
-        if (!finalPath) {
-            res.end();
-            return;
-        }
-
-        res.sendFile(finalPath, { dotfiles: "allow" });
-        /*} else {
-            res.end();
-        } */
-    });
-
-    app.get('/download/:name([^/]*)', async (req, res) => {
-        const isFolder = req.query.folder;
-        let name = req.params.name;
-
-        // Remove .zip on folders
-        if (isFolder) name = name.slice(0, -4);
-
-        const finalPath = getFinalPathIfAllowed(name);
-        if (!finalPath) {
-            res.end();
-            return;
-        }
-
-        let stats;
-        try {
-            stats = await fs.stat(finalPath);
-        } catch(e) {
-            console.error(e)
-            res.end();
-            return;
-        }
-
-        if (!isFolder && stats.isFile()) {
-            res.download(finalPath, req.params.name, { dotfiles: "allow" });
-            return;
-        }
-
-        if (isFolder && stats.isDirectory()) {
-            const archive = archiver("zip");
-            archive.on("error", (e: any) => {
-                console.error(e)
-                res.end();
-            });
-            archive.pipe(res);
-            archive.directory(finalPath, name);
-            archive.finalize();
-            return;
-        }
-
-        res.end();
-    });
+    app.use('/api/fs', fsApi);
 
     app.use(graphqlUploadExpress());
 
