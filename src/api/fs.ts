@@ -1,4 +1,4 @@
-import getFinalPathIfAllowed from "../utils/getFinalPathIfAllowed";
+import { getFinalPathIfAllowed } from "../utils/pathAccess";
 import syncFs, { promises as fs } from "fs";
 import archiver from "archiver";
 import sharp from "sharp";

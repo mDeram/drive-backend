@@ -7,4 +7,7 @@ export default class DirectoryItem {
 
     @Field()
     type: "file" | "folder";
+
+    @Field({ nullable: true })
+    path?: string;
 }

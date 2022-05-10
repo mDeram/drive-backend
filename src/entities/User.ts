@@ -7,4 +7,7 @@ export default class User {
 
     @Field()
     subscription: string;
+
+    @Field()
+    email: string;
 }

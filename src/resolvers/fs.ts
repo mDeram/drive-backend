@@ -4,9 +4,10 @@ import pathLib from "path";
 import { FileUpload, GraphQLUpload } from "graphql-upload";
 import { finished } from "stream/promises";
 import DirectoryItem from "../entities/DirectoryItem";
-import getFinalPathIfAllowed from "../utils/getFinalPathIfAllowed";
+import { getFilePathIfAllowed, getFinalPathIfAllowed } from "../utils/pathAccess";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { find, grep } from "../utils/search";
 const execAsync = promisify(exec);
 
 export default class FsResolver {
@@ -90,7 +91,8 @@ export default class FsResolver {
         if (!finalPath) return;
 
         try {
-            const { stdout, stderr } = await execAsync(`du -s ${finalPath} | cut -f1`);
+            //TODO security check can finalPath inject commands
+            const { stdout, stderr } = await execAsync(`du -s "${finalPath}" | cut -f1`);
             if (stderr) {
                 console.error(stderr);
                 return;
@@ -100,6 +102,40 @@ export default class FsResolver {
             console.error(e);
             return;
         }
+    }
+
+    @Query(() => [DirectoryItem])
+    async search(
+        @Arg("pattern") pattern: string
+    ): Promise<DirectoryItem[]> {
+        const finalPath = getFinalPathIfAllowed();
+        if (!finalPath) return [];
+
+        let results: string | null = null;
+
+        try { results = await find(finalPath, pattern) } catch(e) {}
+
+        if (!results) {
+            try { results = await grep(finalPath, pattern) } catch(e) {}
+        }
+
+        if (!results) return [];
+
+        const resultArray = results.split("\n");
+
+        // Remove last element '' (empty string)
+        resultArray.pop();
+
+        return (await Promise.all(
+            resultArray.map(async (filename) => {
+                const stat = await fs.stat(filename);
+                return {
+                    type: stat.isDirectory() ? "folder" : "file",
+                    name: pathLib.basename(filename),
+                    path: getFilePathIfAllowed(filename)
+                } as DirectoryItem;
+            }))
+        ).filter(directoryItem => directoryItem.path !== undefined);
     }
 
 }

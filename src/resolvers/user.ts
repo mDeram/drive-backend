@@ -11,8 +11,11 @@ export default class UserResolver {
     @Query(() => User)
     user() {
         const user = new User();
+
         user.subscription = "free";
         user.name = "Mathurin Deramecourt";
+        user.email = "contact@mderam.com";
+
         return user;
     }
 }
