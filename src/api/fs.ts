@@ -1,52 +1,38 @@
-import { getFinalPathIfAllowed } from "../utils/pathAccess";
 import syncFs, { promises as fs } from "fs";
 import archiver from "archiver";
 import sharp from "sharp";
 import express from "express";
+import SafePath from "../utils/SafePath";
+import { tmpClientId } from "../constants";
 const router = express.Router();
 
-router.get('/cropped/:name([^/]*)', (req, res) => {
-    const finalPath = getFinalPathIfAllowed(req.params.name);
-    if (!finalPath) {
-        res.end();
-        return;
-    }
+//TODO auth
+//TODO error middleware
+router.get('/cropped/:filename([^/]*)', (req, res) => {
+    const sp = new SafePath(tmpClientId, req.params.filename);
 
-    const fileStream = syncFs.createReadStream(finalPath);
+    const fileStream = syncFs.createReadStream(sp.getServerPath());
     fileStream.pipe(sharp().resize(100).png()).pipe(res);
 });
 
-router.get('/file/:name([^/]*)', (req, res) => {
-    //if(!req.query.user){
-    //const username = req.query.userId;
-    const finalPath = getFinalPathIfAllowed(req.params.name);
-    if (!finalPath) {
-        res.end();
-        return;
-    }
+router.get('/file/:filename([^/]*)', (req, res) => {
+    const sp = new SafePath(tmpClientId, req.params.filename);
 
-    res.sendFile(finalPath, { dotfiles: "allow" });
-    /*} else {
-        res.end();
-    } */
+    res.sendFile(sp.getServerPath(), { dotfiles: "allow" });
 });
 
-router.get('/download/:name([^/]*)', async (req, res) => {
+router.get('/download/:filename([^/]*)', async (req, res) => {
     const isFolder = req.query.folder;
-    let name = req.params.name;
+    let filename = req.params.filename;
 
     // Remove .zip on folders
-    if (isFolder) name = name.slice(0, -4);
+    if (isFolder) filename = filename.slice(0, -4);
 
-    const finalPath = getFinalPathIfAllowed(name);
-    if (!finalPath) {
-        res.end();
-        return;
-    }
+    const sp = new SafePath(tmpClientId, filename);
 
     let stats;
     try {
-        stats = await fs.stat(finalPath);
+        stats = await fs.stat(sp.getServerPath());
     } catch(e) {
         console.error(e)
         res.end();
@@ -54,18 +40,18 @@ router.get('/download/:name([^/]*)', async (req, res) => {
     }
 
     if (!isFolder && stats.isFile()) {
-        res.download(finalPath, req.params.name, { dotfiles: "allow" });
+        res.download(sp.getServerPath(), req.params.filename, { dotfiles: "allow" });
         return;
     }
 
     if (isFolder && stats.isDirectory()) {
         const archive = archiver("zip");
         archive.on("error", (e: any) => {
-            console.error(e)
+            console.error("archive", e)
             res.end();
         });
         archive.pipe(res);
-        archive.directory(finalPath, name);
+        archive.directory(sp.getServerPath(), filename);
         archive.finalize();
         return;
     }

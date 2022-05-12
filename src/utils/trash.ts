@@ -1,0 +1,22 @@
+import { v4 as uuid } from "uuid";
+
+export interface trashData {
+    name: string;
+    time: number;
+    id: string;
+}
+
+export const toTrashName = (name: string) => {
+    return name + "." + Date.now() + "." + uuid();
+}
+
+export const fromTrashName = (name: string): trashData | null => {
+    const data = name.match(/(.*)\.(.*)\.(.*)/); // 1 filename, 2 timestamp, 3 uuid
+    if (!data || data.length < 4) return null;
+
+    return {
+        name: data[1],
+        time: Date.parse(data[2]),
+        id: data[3]
+    }
+}

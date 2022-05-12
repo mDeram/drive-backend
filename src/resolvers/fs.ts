@@ -4,11 +4,13 @@ import pathLib from "path";
 import { FileUpload, GraphQLUpload } from "graphql-upload";
 import { finished } from "stream/promises";
 import DirectoryItem from "../entities/DirectoryItem";
-import { getFilesPathIfAllowed, getFinalFilesPathIfAllowed, getFinalPathIfAllowed, getPathIfAllowed, getTrashPathIfAllowed, toTrashPathIfAllowed } from "../utils/pathAccess";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { find, grep } from "../utils/search";
-import { v4 as uuid } from "uuid";
+import SafePath from "../utils/SafePath";
+import { FILES_DIR, tmpClientId, TRASH_DIR } from "../constants";
+import { fromTrashName } from "../utils/trash";
+import TrashDirectoryItem from "../entities/TrashDirectoryItem";
 const execAsync = promisify(exec);
 
 export default class FsResolver {
@@ -16,28 +18,30 @@ export default class FsResolver {
     async ls(
         @Arg("path", { defaultValue: "/files" }) searchPath: string
     ): Promise<DirectoryItem[]> {
-        const finalPath = getFinalPathIfAllowed(searchPath);
-        if (!finalPath) return []; // Should return an error
+        const sp = new SafePath(tmpClientId, searchPath);
 
-        const content = await fs.readdir(finalPath, { withFileTypes: true })
+        const content = await fs.readdir(sp.getServerPath(), { withFileTypes: true })
         return content.map(item => ({
             type: item.isDirectory() ? "folder" : "file",
             name: item.name
         }));
     }
 
-    @Query(() => [DirectoryItem])
-    async lsTrash(
-        @Arg("path", { defaultValue: "/trash" }) searchPath: string
-    ): Promise<DirectoryItem[]> {
-        const finalPath = getFinalPathIfAllowed(searchPath);
-        if (!finalPath) return [];
+    @Query(() => [TrashDirectoryItem])
+    async lsTrash(): Promise<TrashDirectoryItem[]> {
+        const sp = new SafePath(tmpClientId, TRASH_DIR);
 
-        const content = await fs.readdir(finalPath, { withFileTypes: true })
-        return content.map(item => ({
-            type: item.isDirectory() ? "folder" : "file",
-            name: item.name.match(/(.*)\.(.*)\.(.*)/)![1] //1 filename, 2 timestamp, 3 uuid
-        }));
+        const content = await fs.readdir(sp.getServerPath(), { withFileTypes: true })
+
+        return content.map(item => {
+            const data = fromTrashName(item.name);
+            if (!data) return;
+
+            return {
+                type: item.isDirectory() ? "folder" : "file",
+                ...data
+            };
+        }).filter(item => item) as TrashDirectoryItem[];
     }
 
     @Mutation(() => [Boolean])
@@ -45,12 +49,12 @@ export default class FsResolver {
         @Arg("paths", type => [String]) paths: string[]
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toDeletePath) => {
-            const finalPath = getFinalPathIfAllowed(toDeletePath);
-            if (!finalPath) return false;
+            const sp = new SafePath(tmpClientId, toDeletePath);
+
             try {
-                await fs.rm(finalPath, { recursive: true });
+                await fs.rm(sp.getServerPath(), { recursive: true });
             } catch(e) {
-                console.error(e);
+                console.error("rm", e);
                 return false;
             }
             return true;
@@ -62,15 +66,16 @@ export default class FsResolver {
         @Arg("paths", type => [String]) paths: string[]
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toTrashPath) => {
-            const oldPath = getFinalFilesPathIfAllowed(toTrashPath);
-            const finalPath = toTrashPathIfAllowed(toTrashPath);
-            console.log(toTrashPath, oldPath, finalPath);
-            if (!oldPath || !finalPath) return false;
+            const sp = new SafePath(tmpClientId, toTrashPath);
+            if (!sp.hasFilesPath()) return false;
+
+            const oldPath = sp.getServerPath();
+            sp.filesItemToTrashItemOrThrow();
 
             try {
-                await fs.rename(oldPath, finalPath + "." + Date.now() + "." + uuid());
+                await fs.rename(oldPath, sp.getServerPath());
             } catch(e) {
-                console.error(e);
+                console.error("trash", e);
                 return false;
             }
             return true;
@@ -85,20 +90,19 @@ export default class FsResolver {
     ): Promise<boolean> {
         const { createReadStream, filename, mimetype, encoding } = await file;
 
-        const outPath = getFinalPathIfAllowed(pathLib.join(uploadPath, additionalPath, filename));
-        const dirPath = getFinalPathIfAllowed(pathLib.join(uploadPath, additionalPath));
-        if (!outPath || !dirPath) return false;
+        const safeOutPath = new SafePath(tmpClientId, pathLib.join(uploadPath, additionalPath, filename));
+        const safeDirPath = new SafePath(tmpClientId, pathLib.join(uploadPath, additionalPath));
 
-        await fs.mkdir(dirPath, { recursive: true });
+        await fs.mkdir(safeDirPath.getServerPath(), { recursive: true });
 
         const stream = createReadStream();
-        const out = syncFs.createWriteStream(outPath);
+        const out = syncFs.createWriteStream(safeOutPath.getServerPath());
         stream.pipe(out);
 
         try {
             await finished(out);
         } catch(e) {
-            console.error(e);
+            console.error("upload", e);
             return false;
         }
 
@@ -109,12 +113,12 @@ export default class FsResolver {
     async mkdir(
         @Arg("dirname") dirname: string
     ): Promise<boolean> {
-        const finalPath = getFinalPathIfAllowed(dirname);
-        if (!finalPath) return false;
+        const sp = new SafePath(tmpClientId, dirname);
 
         try {
-            await fs.mkdir(finalPath);
+            await fs.mkdir(sp.getServerPath());
         } catch(e) {
+            console.error("mkdir", e);
             return false;
         }
         return true;
@@ -122,19 +126,18 @@ export default class FsResolver {
 
     @Query(() => Int)
     async diskUsage(): Promise<number | undefined> {
-        const finalPath = getFinalPathIfAllowed();
-        if (!finalPath) return;
+        const sp = new SafePath(tmpClientId, "/");
 
         try {
             //TODO security check can finalPath inject commands
-            const { stdout, stderr } = await execAsync(`du -s "${finalPath}" | cut -f1`);
+            const { stdout, stderr } = await execAsync(`du -s "${sp.getServerPath()}" | cut -f1`);
             if (stderr) {
-                console.error(stderr);
+                console.error("du", stderr);
                 return;
             }
             return parseInt(stdout);
         } catch(e) {
-            console.error(e);
+            console.error("diskUsage", e);
             return;
         }
     }
@@ -143,34 +146,35 @@ export default class FsResolver {
     async search(
         @Arg("pattern") pattern: string
     ): Promise<DirectoryItem[]> {
-        const finalPath = getFinalPathIfAllowed();
-        if (!finalPath) return [];
+        const sp = new SafePath(tmpClientId, FILES_DIR);
 
         let results: string | null = null;
 
-        try { results = await find(finalPath, pattern) } catch(e) {}
+        try { results = await find(sp.getServerPath(), pattern) } catch(e) {}
 
         if (!results) {
-            try { results = await grep(finalPath, pattern) } catch(e) {}
+            try { results = await grep(sp.getServerPath(), pattern) } catch(e) {}
         }
 
         if (!results) return [];
 
         const resultArray = results.split("\n");
 
-        // Remove last element '' (empty string)
+        // Remove last element (empty string)
         resultArray.pop();
 
         return (await Promise.all(
             resultArray.map(async (filename) => {
                 const stat = await fs.stat(filename);
+                const clientPath = new SafePath(tmpClientId, filename).get();
+
                 return {
                     type: stat.isDirectory() ? "folder" : "file",
-                    name: pathLib.basename(filename),
-                    path: getPathIfAllowed(pathLib.dirname(filename))
+                    name: pathLib.basename(clientPath),
+                    path: pathLib.dirname(clientPath)
                 } as DirectoryItem;
             }))
-        ).filter(directoryItem => directoryItem.path !== undefined);
+        ).filter(directoryItem => directoryItem.path);
     }
 
 }
