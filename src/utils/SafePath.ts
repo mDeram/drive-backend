@@ -84,6 +84,16 @@ class SafePath {
         this.setOrThrow(trashItem);
     }
 
+    trashItemToFilesItemOrThrow() {
+        if (!this.isTrashItem()) throw new Error("Invalid trash item");
+
+        const clientPath = this.getServerPath();
+        const name = pathLib.join(FILES_DIR, pathLib.basename(clientPath));
+        const filesItem = fromTrashName(name)!.name;
+
+        this.setOrThrow(filesItem);
+    }
+
     /**
      * Compute the normalized path, if the path is valid:
      * starts with the DRIVE_PATH + cliendId return true

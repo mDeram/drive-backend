@@ -90,4 +90,13 @@ describe("SafePath unit tests", () => {
         expect(() => sp.filesItemToTrashItemOrThrow()).to.throw("Invalid files item");
     });
 
+    it("trashItemToFilesItemOrThrow with A_TRASH_PATH with get return TRASH_DIR + A_PATH", () => {
+        const sp = new SafePath(CLIENT_ID, A_TRASH_PATH);
+        sp.trashItemToFilesItemOrThrow();
+        expect(sp.get()).to.equal(FILES_DIR + A_PATH);
+    })
+    it("trashItemToFilesItemOrThrow with ROOT_DIR throw", () => {
+        const sp = new SafePath(CLIENT_ID, ROOT_DIR);
+        expect(() => sp.trashItemToFilesItemOrThrow()).to.throw("Invalid trash item");
+    });
 });

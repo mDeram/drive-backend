@@ -67,7 +67,7 @@ export default class FsResolver {
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toTrashPath) => {
             const sp = new SafePath(tmpClientId, toTrashPath);
-            if (!sp.hasFilesPath()) return false;
+            if (!sp.isFilesItem()) return false;
 
             const oldPath = sp.getServerPath();
             sp.filesItemToTrashItemOrThrow();
@@ -76,6 +76,27 @@ export default class FsResolver {
                 await fs.rename(oldPath, sp.getServerPath());
             } catch(e) {
                 console.error("trash", e);
+                return false;
+            }
+            return true;
+        }));
+    }
+
+    @Mutation(() => [Boolean])
+    async restore(
+        @Arg("paths", type => [String]) paths: string[]
+    ): Promise<boolean[]> {
+        return Promise.all(paths.map(async (toTrashPath) => {
+            const sp = new SafePath(tmpClientId, toTrashPath);
+            if (!sp.isTrashItem()) return false;
+
+            const oldPath = sp.getServerPath();
+            sp.trashItemToFilesItemOrThrow();
+
+            try {
+                await fs.rename(oldPath, sp.getServerPath());
+            } catch(e) {
+                console.error("restore", e);
                 return false;
             }
             return true;
