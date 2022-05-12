@@ -8,10 +8,11 @@ const router = express.Router();
 
 //TODO auth
 //TODO error middleware
-router.get('/cropped/:filename([^/]*)', (req, res) => {
+router.get('/cropped/:filename([^/]*)', (req, res, next) => {
     const sp = new SafePath(tmpClientId, req.params.filename);
 
     const fileStream = syncFs.createReadStream(sp.getServerPath());
+    fileStream.on("error", () => res.sendStatus(204));
     fileStream.pipe(sharp().resize(100).png()).pipe(res);
 });
 
