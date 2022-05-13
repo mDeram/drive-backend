@@ -1,6 +1,8 @@
 import pathLib from "path";
 import { DRIVE_PATH, FILES_DIR, TRASH_DIR } from "../constants";
-import { fromTrashName, toTrashName, trashData } from "./trash";
+import { fromTrashName, generateTrashName, trashData } from "./trash";
+
+export type PathType = "client" | "server";
 
 /**
  * A module to safely use paths
@@ -21,9 +23,9 @@ class SafePath {
     /**
      * Throw an error if the cliendId or the clientPath are invalid
      */
-    constructor(clientId: string, clientPath: string) {
+    constructor(clientId: string, path: string, pathType: PathType = "client") {
         this.#setClientIdOrThrow(clientId);
-        this.setOrThrow(clientPath);
+        this.setOrThrow(path, pathType);
     }
 
     /**
@@ -40,8 +42,8 @@ class SafePath {
     /**
      * Try to set a new clientPath on the SafePath instance
      */
-    setOrThrow(clientPath: string) {
-        this.#path = this.#getNormalizedPathOrThrow(clientPath);
+    setOrThrow(path: string, pathType: PathType = "client") {
+        this.#path = this.#getNormalizedPathOrThrow(path, pathType);
         this.#throwOnTrashItemLike();
     }
 
@@ -79,7 +81,7 @@ class SafePath {
 
         const clientPath = this.get();
         const name = pathLib.join(TRASH_DIR, pathLib.basename(clientPath));
-        const trashItem = toTrashName(name);
+        const trashItem = generateTrashName(name);
 
         this.setOrThrow(trashItem);
     }
@@ -99,11 +101,14 @@ class SafePath {
      * starts with the DRIVE_PATH + cliendId return true
      * otherwise throw
      */
-    #getNormalizedPathOrThrow(path: string): string {
-        const normalizedPath = pathLib.join(this.#basePath, path);
-        if (!normalizedPath.startsWith(this.#basePath)) throw new Error("Invalid path");
+    #getNormalizedPathOrThrow(path: string, pathType: PathType): string {
+        let normalizedPath: string;
+        if (pathType === "client") normalizedPath = pathLib.join(this.#basePath, path);
+        if (pathType === "server") normalizedPath = pathLib.normalize(path);
 
-        return normalizedPath;
+        if (!normalizedPath!.startsWith(this.#basePath)) throw new Error("Invalid path");
+
+        return normalizedPath!;
     }
 
     /**

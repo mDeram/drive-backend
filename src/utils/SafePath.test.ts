@@ -2,7 +2,7 @@ import SafePath from "./SafePath";
 import { expect } from "chai";
 import { DRIVE_PATH, FILES_DIR, TRASH_DIR } from "../constants";
 import pathLib from "path";
-import { toTrashName } from "./trash";
+import { generateTrashName } from "./trash";
 
 describe("SafePath unit tests", () => {
     const CLIENT_ID = "arst";
@@ -10,8 +10,8 @@ describe("SafePath unit tests", () => {
     const ROOT_DIR = "/";
     const A_PATH = "/a";
     const A_LONG_PATH = "/a/b";
-    const A_TRASH_PATH = toTrashName(pathLib.join(TRASH_DIR, A_PATH));
-    const A_LONG_TRASH_PATH = toTrashName(pathLib.join(TRASH_DIR, A_LONG_PATH));
+    const A_TRASH_PATH = generateTrashName(pathLib.join(TRASH_DIR, A_PATH));
+    const A_LONG_TRASH_PATH = generateTrashName(pathLib.join(TRASH_DIR, A_LONG_PATH));
     const A_FILES_PATH = pathLib.join(FILES_DIR, A_PATH);
     const GO_UP_PATH = "../";
 
@@ -32,6 +32,14 @@ describe("SafePath unit tests", () => {
     });
     it("constructor with TRASH_DIR throw", () => {
         expect(() => new SafePath(CLIENT_ID, TRASH_DIR)).to.not.throw();
+    });
+
+    it("constructor with ROOT_DIR server path throw", () => {
+        expect(() => new SafePath(CLIENT_ID, ROOT_DIR, "server")).to.throw("Invalid path");
+    });
+    it("constructor with DRIVE_PATH + CLIENT_ID server path to not throw", () => {
+        const serverClientPath = pathLib.join(DRIVE_PATH, CLIENT_ID);
+        expect(() => new SafePath(CLIENT_ID, serverClientPath, "server")).to.not.throw();
     });
 
     it("hasFilesPath with FILES_DIR return true", () => {
