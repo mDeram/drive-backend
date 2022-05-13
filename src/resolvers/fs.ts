@@ -11,6 +11,7 @@ import SafePath from "../utils/SafePath";
 import { FILES_DIR, tmpClientId, TRASH_DIR } from "../constants";
 import { fromTrashName } from "../utils/trash";
 import TrashDirectoryItem from "../entities/TrashDirectoryItem";
+import SearchDirectoryItem from "../entities/SearchDirectoryItem";
 const execAsync = promisify(exec);
 
 export default class FsResolver {
@@ -84,7 +85,9 @@ export default class FsResolver {
 
     @Mutation(() => [Boolean])
     async restore(
-        @Arg("paths", type => [String]) paths: string[]
+        @Arg("paths", type => [String]) paths: string[],
+        //@Arg("times", type => [Int]) times: number[],
+        //@Arg("ids", type => [String]) ids: string[]
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toTrashPath) => {
             const sp = new SafePath(tmpClientId, toTrashPath);
@@ -163,10 +166,10 @@ export default class FsResolver {
         }
     }
 
-    @Query(() => [DirectoryItem])
+    @Query(() => [SearchDirectoryItem])
     async search(
         @Arg("pattern") pattern: string
-    ): Promise<DirectoryItem[]> {
+    ): Promise<SearchDirectoryItem[]> {
         const sp = new SafePath(tmpClientId, FILES_DIR);
 
         let results: string | null = null;
@@ -187,13 +190,14 @@ export default class FsResolver {
         return (await Promise.all(
             resultArray.map(async (filename) => {
                 const stat = await fs.stat(filename);
-                const clientPath = new SafePath(tmpClientId, filename).get();
+                const clientPath = new SafePath(tmpClientId, filename, "server").get();
+                console.log(clientPath);
 
                 return {
                     type: stat.isDirectory() ? "folder" : "file",
                     name: pathLib.basename(clientPath),
                     path: pathLib.dirname(clientPath)
-                } as DirectoryItem;
+                } as SearchDirectoryItem;
             }))
         ).filter(directoryItem => directoryItem.path);
     }
