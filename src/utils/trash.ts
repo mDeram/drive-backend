@@ -2,7 +2,7 @@ import { v4 as uuid } from "uuid";
 
 export interface trashData {
     name: string;
-    time: number;
+    time: string;
     id: string;
 }
 
@@ -20,7 +20,7 @@ export const fromTrashName = (name: string): trashData | null => {
 
     return {
         name: data[1],
-        time: Date.parse(data[2]),
+        time: data[2],
         id: data[3]
     }
 }

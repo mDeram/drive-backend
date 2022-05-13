@@ -33,10 +33,12 @@ export default class FsResolver {
         const sp = new SafePath(tmpClientId, TRASH_DIR);
 
         const content = await fs.readdir(sp.getServerPath(), { withFileTypes: true })
+        console.log(content);
 
         return content.map(item => {
             const data = fromTrashName(item.name);
             if (!data) return;
+            console.log(data);
 
             return {
                 type: item.isDirectory() ? "folder" : "file",
@@ -191,7 +193,6 @@ export default class FsResolver {
             resultArray.map(async (filename) => {
                 const stat = await fs.stat(filename);
                 const clientPath = new SafePath(tmpClientId, filename, "server").get();
-                console.log(clientPath);
 
                 return {
                     type: stat.isDirectory() ? "folder" : "file",

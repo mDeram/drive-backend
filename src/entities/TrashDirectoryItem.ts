@@ -7,5 +7,5 @@ export default class TrashDirectoryItem extends DirectoryItem {
     id: string;
 
     @Field()
-    time: number;
+    time: string;
 }
