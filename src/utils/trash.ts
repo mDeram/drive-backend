@@ -6,8 +6,12 @@ export interface trashData {
     id: string;
 }
 
-export const toTrashName = (name: string) => {
+export const generateTrashName = (name: string) => {
     return name + "." + Date.now() + "." + uuid();
+}
+
+export const toTrashName = (data: trashData) => {
+    return data.name + "." + data.time + "." + data.id;
 }
 
 export const fromTrashName = (name: string): trashData | null => {
