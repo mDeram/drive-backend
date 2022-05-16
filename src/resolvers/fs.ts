@@ -33,12 +33,10 @@ export default class FsResolver {
         const sp = new SafePath(tmpClientId, TRASH_DIR);
 
         const content = await fs.readdir(sp.getServerPath(), { withFileTypes: true })
-        console.log(content);
 
         return content.map(item => {
             const data = fromTrashName(item.name);
             if (!data) return;
-            console.log(data);
 
             return {
                 type: item.isDirectory() ? "folder" : "file",

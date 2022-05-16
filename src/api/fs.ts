@@ -1,13 +1,13 @@
 import syncFs, { promises as fs } from "fs";
 import archiver from "archiver";
 import sharp from "sharp";
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import SafePath from "../utils/SafePath";
 import { tmpClientId } from "../constants";
+import asyncHandler from "express-async-handler";
 const router = express.Router();
 
 //TODO auth
-//TODO error middleware
 router.get('/cropped/:filename([^/]*)', (req, res, next) => {
     const sp = new SafePath(tmpClientId, req.params.filename);
 
@@ -22,7 +22,7 @@ router.get('/file/:filename([^/]*)', (req, res) => {
     res.sendFile(sp.getServerPath(), { dotfiles: "allow" });
 });
 
-router.get('/download/:filename([^/]*)', async (req, res) => {
+router.get('/download/:filename([^/]*)', asyncHandler(async (req, res) => {
     const isFolder = req.query.folder;
     let filename = req.params.filename;
 
@@ -31,14 +31,7 @@ router.get('/download/:filename([^/]*)', async (req, res) => {
 
     const sp = new SafePath(tmpClientId, filename);
 
-    let stats;
-    try {
-        stats = await fs.stat(sp.getServerPath());
-    } catch(e) {
-        console.error(e)
-        res.end();
-        return;
-    }
+    const stats = await fs.stat(sp.getServerPath() + "arst/arst");
 
     if (!isFolder && stats.isFile()) {
         res.download(sp.getServerPath(), req.params.filename, { dotfiles: "allow" });
@@ -57,6 +50,12 @@ router.get('/download/:filename([^/]*)', async (req, res) => {
         return;
     }
 
+    res.end();
+}));
+
+router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error(err);
+    res.status(500);
     res.end();
 });
 
