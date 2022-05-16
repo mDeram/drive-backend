@@ -31,7 +31,7 @@ router.get('/download/:filename([^/]*)', asyncHandler(async (req, res) => {
 
     const sp = new SafePath(tmpClientId, filename);
 
-    const stats = await fs.stat(sp.getServerPath() + "arst/arst");
+    const stats = await fs.stat(sp.getServerPath());
 
     if (!isFolder && stats.isFile()) {
         res.download(sp.getServerPath(), req.params.filename, { dotfiles: "allow" });
