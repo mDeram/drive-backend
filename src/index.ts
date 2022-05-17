@@ -14,8 +14,8 @@ import cors from "cors";
 import fsApi from "./api/fs";
 
 const main = async () => {
-    //const orm = await createConnection(typeormConfig);
-    //if (___prod___) await orm.runMigrations();
+    const orm = await createConnection(typeormConfig);
+    if (___prod___) await orm.runMigrations();
 
     const RedisStore = connectRedis(session);
     const redis = new Redis();

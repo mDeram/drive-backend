@@ -120,7 +120,9 @@ export default class FsResolver {
         await fs.mkdir(safeDirPath.getServerPath(), { recursive: true });
 
         const stream = createReadStream();
+        stream.on("error", console.error);
         const out = syncFs.createWriteStream(safeOutPath.getServerPath());
+        out.on("error", console.error);
         stream.pipe(out);
 
         try {

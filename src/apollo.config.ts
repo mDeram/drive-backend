@@ -20,6 +20,6 @@ export default (async (): Promise<Config> => {
                 ? ApolloServerPluginLandingPageDisabled()
                 : ApolloServerPluginLandingPageGraphQLPlayground()
         ],
-        context: ({ req }): MyContext => ({ req })
+        context: ({ req, res }): MyContext => ({ req, res })
     };
 })();

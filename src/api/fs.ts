@@ -13,7 +13,9 @@ router.get('/cropped/:filename([^/]*)', (req, res, next) => {
 
     const fileStream = syncFs.createReadStream(sp.getServerPath());
     fileStream.on("error", () => res.sendStatus(204));
-    fileStream.pipe(sharp().resize(100).png()).pipe(res);
+    const resizer = sharp().resize(100).png();
+    resizer.on("error", () => res.sendStatus(204));
+    fileStream.pipe(resizer).pipe(res);
 });
 
 router.get('/file/:filename([^/]*)', (req, res) => {
