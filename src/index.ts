@@ -21,7 +21,9 @@ const main = async () => {
     const redis = new Redis();
 
     const app = express();
+    app.disable("x-powered-by");
     if (___prod___) app.set("trust proxy", 1);
+
     app.use(session({
         store: new RedisStore({
             client: redis,
