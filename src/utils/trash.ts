@@ -1,6 +1,6 @@
 import { v4 as uuid } from "uuid";
 
-export interface trashData {
+export interface TrashData {
     name: string;
     time: string;
     id: string;
@@ -10,17 +10,21 @@ export const generateTrashName = (name: string) => {
     return name + "." + Date.now() + "." + uuid();
 }
 
-export const toTrashName = (data: trashData) => {
+export const toTrashName = (data: TrashData) => {
     return data.name + "." + data.time + "." + data.id;
 }
 
-export const fromTrashName = (name: string): trashData | null => {
-    const data = name.match(/(.*)\.(.*)\.(.*)/); // 1 filename, 2 timestamp, 3 uuid
-    if (!data || data.length < 4) return null;
+export const fromTrashName = (fullname: string): TrashData | null => {
+    const data = fullname.split(".");
+    if (data.length < 3) return null;
+
+    const id = data.pop()!;
+    const time = data.pop()!;
+    const name = data.join(".");
 
     return {
-        name: data[1],
-        time: data[2],
-        id: data[3]
+        name,
+        time,
+        id
     }
 }

@@ -1,6 +1,6 @@
 import pathLib from "path";
 import { DRIVE_PATH, FILES_DIR, TRASH_DIR } from "../constants";
-import { fromTrashName, generateTrashName, trashData } from "./trash";
+import { fromTrashName, generateTrashName, TrashData } from "./trash";
 
 export type PathType = "client" | "server";
 
@@ -47,7 +47,7 @@ class SafePath {
         this.#throwOnTrashItemLike();
     }
 
-    getTrashDataOrThrow(): trashData {
+    getTrashDataOrThrow(): TrashData {
         const trashData = fromTrashName(pathLib.basename(this.#path));
         if (!this.isTrashItem() || !trashData) throw new Error("Invalid trash data");
 

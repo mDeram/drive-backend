@@ -155,7 +155,7 @@ export default class FsResolver {
         const sp = new SafePath(tmpClientId, "/");
 
         try {
-            //TODO security check can finalPath inject commands
+            //TODO security check can finalPath inject commands?
             const { stdout, stderr } = await execAsync(`du -s "${sp.getServerPath()}" | cut -f1`);
             if (stderr) {
                 console.error("du", stderr);

@@ -35,7 +35,6 @@ export default class UserResolver {
         return user;
     }
 
-    //TODO test
     @Mutation(() => User, { nullable: true })
     async login(
         @Arg("email") email: string,
