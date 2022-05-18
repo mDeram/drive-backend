@@ -3,7 +3,9 @@ import User from "../entities/User";
 import RegisterInput from "../inputs/RegisterInput";
 import { MyContext } from "../types";
 import argon2 from "argon2";
-import { SESSION_COOKIE } from "../constants";
+import { FILES_DIR, SESSION_COOKIE, TRASH_DIR } from "../constants";
+import SafePath from "../utils/SafePath";
+import { promises as fs } from "fs";
 
 @Resolver(User)
 export default class UserResolver {
@@ -30,7 +32,18 @@ export default class UserResolver {
         const user = User.create({ username, email, password: hash });
         await user.save();
 
+        const clientId = user.id.toString();
+
+        //TODO hide those errors
+        const sp = new SafePath(clientId, "/");
+        await fs.mkdir(sp.getServerPath());
+        sp.setOrThrow(FILES_DIR);
+        await fs.mkdir(sp.getServerPath());
+        sp.setOrThrow(TRASH_DIR);
+        await fs.mkdir(sp.getServerPath());
+
         req.session.userId = user.id;
+        req.session.clientId = clientId;
 
         return user;
     }
@@ -53,7 +66,9 @@ export default class UserResolver {
         const valid = await argon2.verify(user.password, password);
         if (!valid) return null;
 
+        console.log(user.id);
         req.session.userId = user.id;
+        req.session.clientId = user.id.toString();
 
         return user;
     }

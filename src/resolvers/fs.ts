@@ -1,4 +1,4 @@
-import { Arg, Int, Mutation, Query } from "type-graphql";
+import { Arg, Ctx, Int, Mutation, Query, UseMiddleware } from "type-graphql";
 import syncFs, { promises as fs } from "fs";
 import pathLib from "path";
 import { FileUpload, GraphQLUpload } from "graphql-upload";
@@ -8,18 +8,22 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { find, grep } from "../utils/search";
 import SafePath from "../utils/SafePath";
-import { FILES_DIR, tmpClientId, TRASH_DIR } from "../constants";
+import { FILES_DIR, TRASH_DIR } from "../constants";
 import { fromTrashName } from "../utils/trash";
 import TrashDirectoryItem from "../entities/TrashDirectoryItem";
 import SearchDirectoryItem from "../entities/SearchDirectoryItem";
+import isAuth from "../middlewares/isAuth";
+import { MyContext } from "../types";
 const execAsync = promisify(exec);
 
 export default class FsResolver {
     @Query(() => [DirectoryItem])
+    @UseMiddleware(isAuth)
     async ls(
-        @Arg("path", { defaultValue: "/files" }) searchPath: string
+        @Arg("path", { defaultValue: "/files" }) searchPath: string,
+        @Ctx() { req }: MyContext
     ): Promise<DirectoryItem[]> {
-        const sp = new SafePath(tmpClientId, searchPath);
+        const sp = new SafePath(req.session.clientId!, searchPath);
 
         const content = await fs.readdir(sp.getServerPath(), { withFileTypes: true })
         return content.map(item => ({
@@ -29,8 +33,11 @@ export default class FsResolver {
     }
 
     @Query(() => [TrashDirectoryItem])
-    async lsTrash(): Promise<TrashDirectoryItem[]> {
-        const sp = new SafePath(tmpClientId, TRASH_DIR);
+    @UseMiddleware(isAuth)
+    async lsTrash(
+        @Ctx() { req }: MyContext
+    ): Promise<TrashDirectoryItem[]> {
+        const sp = new SafePath(req.session.clientId!, TRASH_DIR);
 
         const content = await fs.readdir(sp.getServerPath(), { withFileTypes: true })
 
@@ -46,11 +53,13 @@ export default class FsResolver {
     }
 
     @Mutation(() => [Boolean])
+    @UseMiddleware(isAuth)
     async rm(
-        @Arg("paths", type => [String]) paths: string[]
+        @Arg("paths", type => [String]) paths: string[],
+        @Ctx() { req }: MyContext
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toDeletePath) => {
-            const sp = new SafePath(tmpClientId, toDeletePath);
+            const sp = new SafePath(req.session.clientId!, toDeletePath);
 
             try {
                 await fs.rm(sp.getServerPath(), { recursive: true });
@@ -63,11 +72,13 @@ export default class FsResolver {
     }
 
     @Mutation(() => [Boolean])
+    @UseMiddleware(isAuth)
     async trash(
-        @Arg("paths", type => [String]) paths: string[]
+        @Arg("paths", type => [String]) paths: string[],
+        @Ctx() { req }: MyContext
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toTrashPath) => {
-            const sp = new SafePath(tmpClientId, toTrashPath);
+            const sp = new SafePath(req.session.clientId!, toTrashPath);
             if (!sp.isFilesItem()) return false;
 
             const oldPath = sp.getServerPath();
@@ -84,13 +95,13 @@ export default class FsResolver {
     }
 
     @Mutation(() => [Boolean])
+    @UseMiddleware(isAuth)
     async restore(
         @Arg("paths", type => [String]) paths: string[],
-        //@Arg("times", type => [Int]) times: number[],
-        //@Arg("ids", type => [String]) ids: string[]
+        @Ctx() { req }: MyContext
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toTrashPath) => {
-            const sp = new SafePath(tmpClientId, toTrashPath);
+            const sp = new SafePath(req.session.clientId!, toTrashPath);
             if (!sp.isTrashItem()) return false;
 
             const oldPath = sp.getServerPath();
@@ -107,15 +118,17 @@ export default class FsResolver {
     }
 
     @Mutation(() => Boolean)
+    @UseMiddleware(isAuth)
     async upload(
         @Arg("path", { defaultValue: "" }) uploadPath: string,
         @Arg("additionalPath", { defaultValue: "" }) additionalPath: string,
-        @Arg("file", type => GraphQLUpload) file: FileUpload
+        @Arg("file", type => GraphQLUpload) file: FileUpload,
+        @Ctx() { req }: MyContext
     ): Promise<boolean> {
         const { createReadStream, filename, mimetype, encoding } = await file;
 
-        const safeOutPath = new SafePath(tmpClientId, pathLib.join(uploadPath, additionalPath, filename));
-        const safeDirPath = new SafePath(tmpClientId, pathLib.join(uploadPath, additionalPath));
+        const safeOutPath = new SafePath(req.session.clientId!, pathLib.join(uploadPath, additionalPath, filename));
+        const safeDirPath = new SafePath(req.session.clientId!, pathLib.join(uploadPath, additionalPath));
 
         await fs.mkdir(safeDirPath.getServerPath(), { recursive: true });
 
@@ -136,10 +149,12 @@ export default class FsResolver {
     }
 
     @Mutation(() => Boolean)
+    @UseMiddleware(isAuth)
     async mkdir(
-        @Arg("dirname") dirname: string
+        @Arg("dirname") dirname: string,
+        @Ctx() { req }: MyContext
     ): Promise<boolean> {
-        const sp = new SafePath(tmpClientId, dirname);
+        const sp = new SafePath(req.session.clientId!, dirname);
 
         try {
             await fs.mkdir(sp.getServerPath());
@@ -151,8 +166,11 @@ export default class FsResolver {
     }
 
     @Query(() => Int)
-    async diskUsage(): Promise<number | undefined> {
-        const sp = new SafePath(tmpClientId, "/");
+    @UseMiddleware(isAuth)
+    async diskUsage(
+        @Ctx() { req }: MyContext
+    ): Promise<number | undefined> {
+        const sp = new SafePath(req.session.clientId!, "/");
 
         try {
             //TODO security check can finalPath inject commands?
@@ -169,10 +187,12 @@ export default class FsResolver {
     }
 
     @Query(() => [SearchDirectoryItem])
+    @UseMiddleware(isAuth)
     async search(
-        @Arg("pattern") pattern: string
+        @Arg("pattern") pattern: string,
+        @Ctx() { req }: MyContext
     ): Promise<SearchDirectoryItem[]> {
-        const sp = new SafePath(tmpClientId, FILES_DIR);
+        const sp = new SafePath(req.session.clientId!, FILES_DIR);
 
         let results: string | null = null;
 
@@ -192,7 +212,7 @@ export default class FsResolver {
         return (await Promise.all(
             resultArray.map(async (filename) => {
                 const stat = await fs.stat(filename);
-                const clientPath = new SafePath(tmpClientId, filename, "server").get();
+                const clientPath = new SafePath(req.session.clientId!, filename, "server").get();
 
                 return {
                     type: stat.isDirectory() ? "folder" : "file",

@@ -3,13 +3,18 @@ import archiver from "archiver";
 import sharp from "sharp";
 import express, { Request, Response, NextFunction } from "express";
 import SafePath from "../utils/SafePath";
-import { tmpClientId } from "../constants";
 import asyncHandler from "express-async-handler";
+import { RequestSession } from "../types";
 const router = express.Router();
 
-//TODO auth
-router.get('/cropped/:filename([^/]*)', (req, res, next) => {
-    const sp = new SafePath(tmpClientId, req.params.filename);
+router.use((req: RequestSession, res: Response, next: NextFunction) => {
+    //TODO test if it works as intended
+    if (!req.session.userId) res.sendStatus(403); // Forbidden
+    next();
+});
+
+router.get('/cropped/:filename([^/]*)', (req: RequestSession, res) => {
+    const sp = new SafePath(req.session.clientId!, req.params.filename);
 
     const fileStream = syncFs.createReadStream(sp.getServerPath());
     fileStream.on("error", () => res.sendStatus(204));
@@ -18,20 +23,20 @@ router.get('/cropped/:filename([^/]*)', (req, res, next) => {
     fileStream.pipe(resizer).pipe(res);
 });
 
-router.get('/file/:filename([^/]*)', (req, res) => {
-    const sp = new SafePath(tmpClientId, req.params.filename);
+router.get('/file/:filename([^/]*)', (req: RequestSession, res) => {
+    const sp = new SafePath(req.session.clientId!, req.params.filename);
 
     res.sendFile(sp.getServerPath(), { dotfiles: "allow" });
 });
 
-router.get('/download/:filename([^/]*)', asyncHandler(async (req, res) => {
+router.get('/download/:filename([^/]*)', asyncHandler(async (req: RequestSession, res) => {
     const isFolder = req.query.folder;
     let filename = req.params.filename;
 
     // Remove .zip on folders
     if (isFolder) filename = filename.slice(0, -4);
 
-    const sp = new SafePath(tmpClientId, filename);
+    const sp = new SafePath(req.session.clientId!, filename);
 
     const stats = await fs.stat(sp.getServerPath());
 
@@ -55,7 +60,7 @@ router.get('/download/:filename([^/]*)', asyncHandler(async (req, res) => {
     res.end();
 }));
 
-router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error(err);
     res.status(500);
     res.end();
