@@ -12,6 +12,11 @@ import Redis from "ioredis";
 import { graphqlUploadExpress } from "graphql-upload";
 import cors from "cors";
 import fsApi from "./api/fs";
+import webhook from "./api/webhook";
+import Stripe from "stripe";
+export const stripe = new Stripe(process.env.STRIPE_KEY || "", {
+    apiVersion: "2020-08-27"
+});
 
 const main = async () => {
     const orm = await createConnection(typeormConfig);
@@ -41,7 +46,7 @@ const main = async () => {
         saveUninitialized: false,
     }));
 
-    const apolloServer = new ApolloServer(await apolloConfig);
+    const apolloServer = new ApolloServer(await apolloConfig(orm));
     await apolloServer.start();
 
     const frontUrl = process.env.FRONT_URL || "";
@@ -52,6 +57,7 @@ const main = async () => {
 
     app.use(cors(corsOptions));
 
+    app.use('/api/webhook', webhook);
     app.use('/api/fs', fsApi);
 
     app.use(graphqlUploadExpress());

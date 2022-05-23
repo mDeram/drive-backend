@@ -1,5 +1,6 @@
 import { Field, ObjectType } from "type-graphql";
-import { BaseEntity, Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { BaseEntity, Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import Subscription from "./Subscription";
 
 @ObjectType()
 @Entity()
@@ -14,7 +15,10 @@ export default class User extends BaseEntity {
 
     @Field()
     @Column({ default: "free" })
-    subscription: string;
+    currentSubscription: string;
+
+    @OneToMany(() => Subscription, subscription => subscription.user)
+    subscriptions: Subscription[];
 
     @Field()
     @Column({ unique: true })

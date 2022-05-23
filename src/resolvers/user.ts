@@ -6,20 +6,57 @@ import argon2 from "argon2";
 import { FILES_DIR, SESSION_COOKIE, TRASH_DIR } from "../constants";
 import SafePath from "../utils/SafePath";
 import { promises as fs } from "fs";
+import Subscription from "../entities/Subscription";
 
 @Resolver(User)
 export default class UserResolver {
+    @FieldResolver()
+    async currentSubscription(
+        @Root() user: User,
+        @Ctx() { orm }: MyContext
+    ) {
+        const now = new Date();
+        const userWithSubscription = await orm
+            .getRepository("user")
+            .createQueryBuilder("user")
+            .leftJoinAndSelect("user.subscriptions", "subscription")
+            .where("user.id = :id", { id: user.id })
+            .andWhere("subscription.from <= :date", { date: now })
+            .andWhere("subscription.to >= :date", { date: now })
+            .getOne() as User || undefined; // Only one subscription tier so we don't care getting the best one
+
+        const subscription = userWithSubscription.subscriptions[0];
+
+        if (!subscription)
+            user.currentSubscription = "free";
+        else
+            user.currentSubscription = subscription.type;
+
+        console.log(subscription);
+        console.log(user.currentSubscription);
+        user.save();
+        console.log(user.currentSubscription);
+        return user.currentSubscription;
+    }
+
     @FieldResolver(() => Int)
     subscriptionSize(@Root() user: User) {
-        return user.subscription === "free" ? 200 * 1024 : 0;
+        if (user.currentSubscription === "free") return 200 * 1024;
+        if (user.currentSubscription === "premium") return 1024 * 1024;
+        return 0;
     }
 
     @Query(() => User, { nullable: true })
-    user(
+    async user(
         @Ctx() { req }: MyContext
-    ): Promise<User> | null {
+    ): Promise<User | null> {
         if (!req.session.userId) return null;
-        return User.findOneOrFail(req.session.userId);
+
+        const user = await User.findOneOrFail(req.session.userId);
+
+        //const subscriptions = await Subscription.findOne(user.id);
+
+        return user;
     }
 
     @Mutation(() => User)
@@ -66,7 +103,6 @@ export default class UserResolver {
         const valid = await argon2.verify(user.password, password);
         if (!valid) return null;
 
-        console.log(user.id);
         req.session.userId = user.id;
         req.session.clientId = user.id.toString();
 

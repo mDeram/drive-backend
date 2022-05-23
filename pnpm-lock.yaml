@@ -32,6 +32,7 @@ specifiers:
   pg: ^8.7.3
   reflect-metadata: ^0.1.13
   sharp: ^0.30.4
+  stripe: ^9.1.0
   ts-node: ^10.5.0
   type-graphql: ^1.1.1
   typeorm: ^0.2.41
@@ -56,6 +57,7 @@ dependencies:
   pg: 8.7.3
   reflect-metadata: 0.1.13
   sharp: 0.30.4
+  stripe: 9.1.0
   type-graphql: 1.1.1_aea24acf06b899fbc466d3b3b949c72d
   typeorm: 0.2.45_ioredis@4.28.5+pg@8.7.3
   uuid: 8.3.2
@@ -3150,6 +3152,14 @@ packages:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
     dev: true
+
+  /stripe/9.1.0:
+    resolution: {integrity: sha512-Kpa+DoB5GCV360a6fvIrWokLhj3SXRadWAxR6duN2mIgrIkvLK0tVDd8b2OT2/QtJ6WX9EI3vLvaErzG76d+tg==}
+    engines: {node: ^8.1 || >=10.*}
+    dependencies:
+      '@types/node': 17.0.30
+      qs: 6.10.3
+    dev: false
 
   /supports-color/5.5.0:
     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
