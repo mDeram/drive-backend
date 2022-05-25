@@ -4,8 +4,6 @@ import pathLib from "path";
 import { FileUpload, GraphQLUpload } from "graphql-upload";
 import { finished } from "stream/promises";
 import DirectoryItem from "../entities/DirectoryItem";
-import { exec } from "child_process";
-import { promisify } from "util";
 import { find, grep } from "../utils/search";
 import SafePath from "../utils/SafePath";
 import { FILES_DIR, TRASH_DIR } from "../constants";
@@ -14,7 +12,9 @@ import TrashDirectoryItem from "../entities/TrashDirectoryItem";
 import SearchDirectoryItem from "../entities/SearchDirectoryItem";
 import isAuth from "../middlewares/isAuth";
 import { MyContext } from "../types";
-const execAsync = promisify(exec);
+import du from "../utils/du";
+import getSubscriptionSize from "../utils/getSubscriptionSize";
+import User from "../entities/User";
 
 export default class FsResolver {
     @Query(() => [DirectoryItem])
@@ -126,15 +126,35 @@ export default class FsResolver {
         @Ctx() { req }: MyContext
     ): Promise<boolean> {
         const { createReadStream, filename, mimetype, encoding } = await file;
+        const clientId = req.session.clientId!;
 
-        const safeOutPath = new SafePath(req.session.clientId!, pathLib.join(uploadPath, additionalPath, filename));
-        const safeDirPath = new SafePath(req.session.clientId!, pathLib.join(uploadPath, additionalPath));
+        const safeOutPath = new SafePath(clientId, pathLib.join(uploadPath, additionalPath, filename));
+        const safeDirPath = new SafePath(clientId, pathLib.join(uploadPath, additionalPath));
 
         await fs.mkdir(safeDirPath.getServerPath(), { recursive: true });
+
+        const diskUsage = await du(clientId);
+        if (!diskUsage) return false;
+
+        const user = await User.findOneOrFail(req.session.userId);
+        const maxUsage = getSubscriptionSize(user.currentSubscription);
+
+        let totalLength = 0;
+        let cancelUpload = false;
 
         const stream = createReadStream();
         stream.on("error", console.error);
         const out = syncFs.createWriteStream(safeOutPath.getServerPath());
+        stream.on("data", (chunk) => {
+            console.log(chunk.length);
+            totalLength += chunk.length;
+            console.log(diskUsage, totalLength / 1024, maxUsage);
+            if (diskUsage + (totalLength / 1024) > maxUsage) {
+                stream.destroy();
+                out.destroy();
+                cancelUpload = true;
+            }
+        });
         out.on("error", console.error);
         stream.pipe(out);
 
@@ -142,6 +162,13 @@ export default class FsResolver {
             await finished(out);
         } catch(e) {
             console.error("upload", e);
+            cancelUpload = true;
+        }
+
+        if (cancelUpload) {
+            try {
+                await fs.rm(safeOutPath.getServerPath());
+            } catch(e) { console.error("rm upload", e) }
             return false;
         }
 
@@ -154,7 +181,16 @@ export default class FsResolver {
         @Arg("dirname") dirname: string,
         @Ctx() { req }: MyContext
     ): Promise<boolean> {
-        const sp = new SafePath(req.session.clientId!, dirname);
+        const clientId = req.session.clientId!;
+        const sp = new SafePath(clientId, dirname);
+
+        const diskUsage = await du(clientId);
+        if (!diskUsage) return false;
+
+        const user = await User.findOneOrFail(req.session.userId);
+        const maxUsage = getSubscriptionSize(user.currentSubscription);
+
+        if (diskUsage > maxUsage) return false;
 
         try {
             await fs.mkdir(sp.getServerPath());
@@ -170,20 +206,7 @@ export default class FsResolver {
     async diskUsage(
         @Ctx() { req }: MyContext
     ): Promise<number | undefined> {
-        const sp = new SafePath(req.session.clientId!, "/");
-
-        try {
-            //TODO security check can finalPath inject commands?
-            const { stdout, stderr } = await execAsync(`du -s "${sp.getServerPath()}" | cut -f1`);
-            if (stderr) {
-                console.error("du", stderr);
-                return;
-            }
-            return parseInt(stdout);
-        } catch(e) {
-            console.error("diskUsage", e);
-            return;
-        }
+        return du(req.session.clientId!);
     }
 
     @Query(() => [SearchDirectoryItem])

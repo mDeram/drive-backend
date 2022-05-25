@@ -7,6 +7,7 @@ import { FILES_DIR, SESSION_COOKIE, TRASH_DIR } from "../constants";
 import SafePath from "../utils/SafePath";
 import { promises as fs } from "fs";
 import Subscription from "../entities/Subscription";
+import getSubscriptionSize from "../utils/getSubscriptionSize";
 
 @Resolver(User)
 export default class UserResolver {
@@ -40,9 +41,7 @@ export default class UserResolver {
 
     @FieldResolver(() => Int)
     subscriptionSize(@Root() user: User) {
-        if (user.currentSubscription === "free") return 200 * 1024;
-        if (user.currentSubscription === "premium") return 1024 * 1024;
-        return 0;
+        return getSubscriptionSize(user.currentSubscription);
     }
 
     @Query(() => User, { nullable: true })
