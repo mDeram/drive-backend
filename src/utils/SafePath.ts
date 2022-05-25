@@ -122,7 +122,7 @@ class SafePath {
     /**
      * Return true when the path is a valid files item
      * A valid files item have a path like:
-     * DRIVE_PATH + cliendId + TRASH_DIR + any_path
+     * DRIVE_PATH + cliendId + FILES_DIR + any_path
      * otherwise return false
      */
     isFilesItem(): boolean {

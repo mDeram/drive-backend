@@ -60,6 +60,7 @@ export default class FsResolver {
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toDeletePath) => {
             const sp = new SafePath(req.session.clientId!, toDeletePath);
+            if (!sp.isFilesItem() && !sp.isTrashItem()) return false;
 
             try {
                 await fs.rm(sp.getServerPath(), { recursive: true });
@@ -130,6 +131,7 @@ export default class FsResolver {
 
         const safeOutPath = new SafePath(clientId, pathLib.join(uploadPath, additionalPath, filename));
         const safeDirPath = new SafePath(clientId, pathLib.join(uploadPath, additionalPath));
+        if (!safeDirPath.hasFilesPath()) return false;
 
         await fs.mkdir(safeDirPath.getServerPath(), { recursive: true });
 
@@ -183,6 +185,7 @@ export default class FsResolver {
     ): Promise<boolean> {
         const clientId = req.session.clientId!;
         const sp = new SafePath(clientId, dirname);
+        if (!sp.isFilesItem()) return false;
 
         const diskUsage = await du(clientId);
         if (!diskUsage) return false;
