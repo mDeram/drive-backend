@@ -25,17 +25,16 @@ export default class UserResolver {
             .andWhere("subscription.to >= :date", { date: now })
             .getOne() as User || undefined; // Only one subscription tier so we don't care getting the best one
 
-        const subscription = userWithSubscription.subscriptions[0];
 
-        if (!subscription)
+        if (!userWithSubscription) {
             user.currentSubscription = "free";
-        else
+        } else {
+            const subscription = userWithSubscription.subscriptions[0];
             user.currentSubscription = subscription.type;
+        }
 
-        console.log(subscription);
-        console.log(user.currentSubscription);
         user.save();
-        console.log(user.currentSubscription);
+
         return user.currentSubscription;
     }
 

@@ -1,9 +1,23 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
 import Stripe from "stripe";
+import { ONE_MONTH_SUBSCRIPTION_AMOUNT, THREE_MONTHS_SUBSCRIPTION_AMOUNT } from "../constants";
 import Subscription from "../entities/Subscription";
 import User from "../entities/User";
 import { stripe } from "../index";
 const router = express.Router();
+
+function getSubscriptionDates(amount: number): { from: Date, to: Date, error: boolean } {
+    let error = false;
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(from);
+
+    if      (amount === ONE_MONTH_SUBSCRIPTION_AMOUNT)    to.setDate(to.getDate() + 31);
+    else if (amount === THREE_MONTHS_SUBSCRIPTION_AMOUNT) to.setDate(to.getDate() + 31 * 3);
+    else error = true;
+
+    return { from, to, error };
+}
 
 function parsePaymentInfo(event: Stripe.Event) {
     const object = event.data.object as any;
@@ -30,11 +44,12 @@ async function payment(event: Stripe.Event) {
     //TODO handle the fact that someone paid without having an account with that email, by sending them an email for e.g.
     if (!user) return;
 
-    const from = new Date();
-    const to = new Date(from);
-    to.setDate(to.getDate() + 31);
+    const { from, to, error } = getSubscriptionDates(amount);
 
-    console.log("from to ", from, to)
+    if (error) {
+        console.error("Subscription with anormal value:", id, email, amount);
+        return;
+    }
 
     await Subscription.create({
         id,
@@ -43,9 +58,13 @@ async function payment(event: Stripe.Event) {
         from,
         to
     }).save();
+
+    user.currentSubscription = "premium";
+    user.save();
 }
 
 async function refund(event: Stripe.Event) {
+    //TODO set user.currentSubscription field to "free"
     const { id } = parseRefundInfo(event);
 
     await Subscription.delete(id);

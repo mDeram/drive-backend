@@ -10,7 +10,7 @@ export default class Subscription extends BaseEntity {
     id: string;
 
     @Field()
-    @PrimaryColumn()
+    @Column()
     userId: number
 
     @ManyToOne(() => User, user => user.subscriptions)
