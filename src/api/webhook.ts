@@ -1,9 +1,11 @@
 import express from "express";
-import Stripe from "stripe";
 import { ONE_MONTH_SUBSCRIPTION_AMOUNT, THREE_MONTHS_SUBSCRIPTION_AMOUNT } from "../constants";
 import Subscription from "../entities/Subscription";
 import User from "../entities/User";
-import { stripe } from "../index";
+import Stripe from "stripe";
+export const stripe = new Stripe(process.env.STRIPE_KEY || "", {
+    apiVersion: "2020-08-27"
+});
 const router = express.Router();
 
 function getSubscriptionDates(amount: number): { from: Date, to: Date, error: boolean } {

@@ -15,6 +15,8 @@ import { MyContext } from "../types";
 import du from "../utils/du";
 import getSubscriptionSize from "../utils/getSubscriptionSize";
 import User from "../entities/User";
+import { v4 as uuid } from "uuid";
+import { getDownloadLinkKey } from "../redis/keys";
 
 export default class FsResolver {
     @Query(() => [DirectoryItem])
@@ -148,9 +150,7 @@ export default class FsResolver {
         stream.on("error", console.error);
         const out = syncFs.createWriteStream(safeOutPath.getServerPath());
         stream.on("data", (chunk) => {
-            console.log(chunk.length);
             totalLength += chunk.length;
-            console.log(diskUsage, totalLength / 1024, maxUsage);
             if (diskUsage + (totalLength / 1024) > maxUsage) {
                 stream.destroy();
                 out.destroy();
@@ -249,4 +249,15 @@ export default class FsResolver {
         ).filter(directoryItem => directoryItem.path);
     }
 
+    @Mutation(() => String)
+    @UseMiddleware(isAuth)
+    async downloadLink(
+        @Arg("paths", type => [String]) paths: string[],
+        @Ctx() { req, redis }: MyContext
+    ): Promise<string> {
+        //TODO check if paths can be an empty array or not
+        const id = uuid();
+        await redis.set(getDownloadLinkKey(req.session.clientId!, id), JSON.stringify(paths), "EX", 60 * 10);
+        return id;
+    }
 }

@@ -5,6 +5,9 @@ import express, { Request, Response, NextFunction } from "express";
 import SafePath from "../utils/SafePath";
 import asyncHandler from "express-async-handler";
 import { RequestSession } from "../types";
+import { getDownloadLinkKey } from "../redis/keys";
+import { redis } from "../index";
+import pathLib from "path";
 const router = express.Router();
 
 router.use((req: RequestSession, res: Response, next: NextFunction) => {
@@ -29,35 +32,44 @@ router.get('/file/:filename([^/]*)', (req: RequestSession, res) => {
     res.sendFile(sp.getServerPath(), { dotfiles: "allow" });
 });
 
-router.get('/download/:filename([^/]*)', asyncHandler(async (req: RequestSession, res) => {
-    const isFolder = req.query.folder;
-    let filename = req.params.filename;
+router.get('/download/:id([^/]*)', asyncHandler(async (req: RequestSession, res) => {
+    const clientId = req.session.clientId!;
+    const id = req.params.id;
 
-    // Remove .zip on folders
-    if (isFolder) filename = filename.slice(0, -4);
+    const result = await redis.get(getDownloadLinkKey(clientId, id));
+    if (!result) throw new Error("Download not found");
+    const paths = JSON.parse(result) as string[];
 
-    const sp = new SafePath(req.session.clientId!, filename);
-
-    const stats = await fs.stat(sp.getServerPath());
-
-    if (!isFolder && stats.isFile()) {
-        res.download(sp.getServerPath(), req.params.filename, { dotfiles: "allow" });
-        return;
+    if (paths.length === 1) {
+        const sp = new SafePath(clientId, paths[0]);
+        const name = pathLib.basename(sp.get());
+        const stats = await fs.stat(sp.getServerPath());
+        if (stats.isFile()) {
+            res.download(sp.getServerPath(), name, { dotfiles: "allow" });
+            return;
+        }
+        res.setHeader("Content-Disposition", `attachment; filename="${name}.zip"`);
+    } else {
+        res.setHeader("Content-Disposition", "attachment; filename=\"Drive.zip\"");
     }
 
-    if (isFolder && stats.isDirectory()) {
-        const archive = archiver("zip");
-        archive.on("error", (e: any) => {
-            console.error("archive", e)
-            res.end();
-        });
-        archive.pipe(res);
-        archive.directory(sp.getServerPath(), filename);
-        archive.finalize();
-        return;
-    }
-
-    res.end();
+    // Handle multiple files zip and then download
+    const archive = archiver("zip");
+    archive.on("error", (e: any) => {
+        console.error("archive", e)
+        res.end();
+    });
+    archive.pipe(res);
+    await Promise.all(paths.map(async (path) => {
+        const sp = new SafePath(clientId, path);
+        const name = pathLib.basename(sp.get());
+        const stats = await fs.stat(sp.getServerPath());
+        if (stats.isDirectory())
+            archive.directory(sp.getServerPath(), name);
+        if (stats.isFile())
+            archive.file(sp.getServerPath(), { name });
+    }));
+    archive.finalize();
 }));
 
 router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

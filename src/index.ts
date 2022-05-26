@@ -13,17 +13,15 @@ import { graphqlUploadExpress } from "graphql-upload";
 import cors from "cors";
 import fsApi from "./api/fs";
 import webhook from "./api/webhook";
-import Stripe from "stripe";
-export const stripe = new Stripe(process.env.STRIPE_KEY || "", {
-    apiVersion: "2020-08-27"
-});
+import { getSessionPrefix } from "./redis/keys";
+
+export const redis = new Redis();
 
 const main = async () => {
     const orm = await createConnection(typeormConfig);
     if (___prod___) await orm.runMigrations();
 
     const RedisStore = connectRedis(session);
-    const redis = new Redis();
 
     const app = express();
     app.disable("x-powered-by");
@@ -32,7 +30,7 @@ const main = async () => {
     app.use(session({
         store: new RedisStore({
             client: redis,
-            prefix: "cloud:sess:"
+            prefix: getSessionPrefix()
         }),
         name: SESSION_COOKIE,
         cookie: {
@@ -46,7 +44,7 @@ const main = async () => {
         saveUninitialized: false,
     }));
 
-    const apolloServer = new ApolloServer(await apolloConfig(orm));
+    const apolloServer = new ApolloServer(await apolloConfig(orm, redis));
     await apolloServer.start();
 
     const frontUrl = process.env.FRONT_URL || "";

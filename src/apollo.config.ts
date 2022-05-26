@@ -10,8 +10,9 @@ import { MyContext } from "./types";
 import FsResolver from "./resolvers/fs";
 import UserResolver from "./resolvers/user";
 import { Connection } from "typeorm";
+import { Redis } from "ioredis";
 
-export default async (orm: Connection): Promise<Config> => {
+export default async (orm: Connection, redis: Redis): Promise<Config> => {
     return {
         schema: await buildSchema({
             resolvers: [FsResolver, UserResolver],
@@ -21,6 +22,6 @@ export default async (orm: Connection): Promise<Config> => {
                 ? ApolloServerPluginLandingPageDisabled()
                 : ApolloServerPluginLandingPageGraphQLPlayground()
         ],
-        context: ({ req, res }): MyContext => ({ req, res, orm })
+        context: ({ req, res }): MyContext => ({ req, res, orm, redis })
     };
 };
