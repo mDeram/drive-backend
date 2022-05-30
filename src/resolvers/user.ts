@@ -3,11 +3,12 @@ import User from "../entities/User";
 import RegisterInput from "../inputs/RegisterInput";
 import { MyContext } from "../types";
 import argon2 from "argon2";
-import { FILES_DIR, SESSION_COOKIE, TRASH_DIR } from "../constants";
-import SafePath from "../utils/SafePath";
-import { promises as fs } from "fs";
+import { SESSION_COOKIE } from "../constants";
 import Subscription from "../entities/Subscription";
 import getSubscriptionSize from "../utils/getSubscriptionSize";
+import { getManager } from "typeorm";
+import mkDefaultDir from "../utils/mkDefaultDir";
+import rmClientDir from "../utils/rmDefaultDir";
 
 @Resolver(User)
 export default class UserResolver {
@@ -25,7 +26,6 @@ export default class UserResolver {
             .andWhere("subscription.from <= :date", { date: now })
             .andWhere("subscription.to >= :date", { date: now })
             .getOne() as User || undefined; // Only one subscription tier so we don't care getting the best one
-
 
         if (!userWithSubscription) {
             user.currentSubscription = "free";
@@ -70,12 +70,7 @@ export default class UserResolver {
         const clientId = user.id.toString();
 
         //TODO hide those errors
-        const sp = new SafePath(clientId, "/");
-        await fs.mkdir(sp.getServerPath());
-        sp.setOrThrow(FILES_DIR);
-        await fs.mkdir(sp.getServerPath());
-        sp.setOrThrow(TRASH_DIR);
-        await fs.mkdir(sp.getServerPath());
+        await mkDefaultDir(clientId);
 
         req.session.userId = user.id;
         req.session.clientId = clientId;
@@ -115,5 +110,55 @@ export default class UserResolver {
             res.clearCookie(SESSION_COOKIE);
             resolve(!err);
         }));
+    }
+
+    @Mutation(() => Boolean)
+    async resetUser(
+        @Arg("email") email: string,
+        @Arg("password") password: string,
+        @Arg("subscription", { defaultValue: false }) subscription: boolean
+    ): Promise<boolean> {
+        //TODO send an email with confirmation link
+        const user = await User.findOne({ email });
+        if (!user) return false;
+
+        const valid = await argon2.verify(user.password, password);
+        if (!valid) return false;
+
+        const { id } = user;
+        const clientId = id.toString();
+
+        if (subscription)
+            Subscription.delete({ userId: id });
+
+        await rmClientDir(clientId);
+        await mkDefaultDir(clientId);
+
+        return true;
+    }
+
+    @Mutation(() => Boolean)
+    async deleteUser(
+        @Arg("email") email: string,
+        @Arg("password") password: string
+    ): Promise<boolean> {
+        //TODO send an email with confirmation link
+        const user = await User.findOne({ email });
+        if (!user) return false;
+
+        const valid = await argon2.verify(user.password, password);
+        if (!valid) return false;
+
+        const { id } = user;
+        const clientId = id.toString();
+
+        const result = await getManager().transaction(async transaction => {
+            await transaction.delete(Subscription, { userId: id });
+            return await transaction.delete(User, id);
+        });
+
+        await rmClientDir(clientId);
+
+        return !!result.affected;
     }
 }
