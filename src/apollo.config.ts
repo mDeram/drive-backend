@@ -22,6 +22,8 @@ export default async (orm: Connection, redis: Redis): Promise<Config> => {
                 ? ApolloServerPluginLandingPageDisabled()
                 : ApolloServerPluginLandingPageGraphQLPlayground()
         ],
-        context: ({ req, res }): MyContext => ({ req, res, orm, redis })
+        context: ({ req, res }): MyContext => ({ req, res, orm, redis }),
+        /*formatError: (err) => {
+        }*/
     };
 };

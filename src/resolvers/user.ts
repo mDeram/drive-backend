@@ -1,4 +1,4 @@
-import { Arg, Ctx, FieldResolver, Int, Mutation, Query, Resolver, Root } from "type-graphql";
+import { Arg, createUnionType, Ctx, Field, FieldResolver, Int, Mutation, ObjectType, Query, Resolver, Root } from "type-graphql";
 import User from "../entities/User";
 import RegisterInput from "../inputs/RegisterInput";
 import { MyContext } from "../types";
@@ -9,6 +9,50 @@ import getSubscriptionSize from "../utils/getSubscriptionSize";
 import { getManager } from "typeorm";
 import mkDefaultDir from "../utils/mkDefaultDir";
 import rmClientDir from "../utils/rmDefaultDir";
+import getFirstValidationError from "../utils/getFirstValidationError";
+import validators from "../utils/validators";
+import getGenericServerError from "../utils/getGenericServerError";
+
+function deleteUserInDb(id: number) {
+    return getManager().transaction(async transaction => {
+        await transaction.delete(Subscription, { userId: id });
+        return await transaction.delete(User, id);
+    });
+}
+
+function pushFieldError(errors: FormError[], name: string, value: string) {
+    const error = getFirstValidationError((validators as any)[name], value);
+    if (!error) return;
+
+    errors.push({
+        field: name,
+        message: error
+    });
+}
+
+@ObjectType()
+class FormError {
+    @Field({ nullable: true })
+    field?: string;
+
+    @Field()
+    message: string;
+}
+
+@ObjectType()
+class FormErrors {
+    @Field(() => [FormError])
+    errors: FormError[];
+
+    constructor(errors: FormError[]) {
+        this.errors = errors;
+    }
+}
+
+const FormResponse = createUnionType({
+    name: "FormResponse",
+    types: () => [User, FormErrors] as const
+});
 
 @Resolver(User)
 export default class UserResolver {
@@ -57,20 +101,41 @@ export default class UserResolver {
         return user;
     }
 
-    @Mutation(() => User)
+    @Mutation(() => FormResponse)
     async register(
         @Arg("inputs") { username, email, password }: RegisterInput,
         @Ctx() { req }: MyContext
-    ): Promise<User> {
+    ): Promise<typeof FormResponse> {
+        const errors: FormError[] = [];
+        pushFieldError(errors, "username", username);
+        pushFieldError(errors, "email", email);
+        pushFieldError(errors, "password", password);
+        if (errors.length) return new FormErrors(errors);
+
         const hash = await argon2.hash(password);
 
-        const user = User.create({ username, email, password: hash });
-        await user.save();
+        let user;
+        try {
+            user = await User.create({ username, email, password: hash }).save();
+        } catch(e) {
+            console.log(e);
+            if (e.code === '35505' || e.detail.includes("already exists"))
+                return new FormErrors([{ message: "Email already taken." }]);
+            return new FormErrors([ getGenericServerError(e) ]);
+        }
 
         const clientId = user.id.toString();
 
-        //TODO hide those errors
-        await mkDefaultDir(clientId);
+        try {
+            await mkDefaultDir(clientId);
+        } catch(e) {
+            try {
+                await deleteUserInDb(user.id);
+                await rmClientDir(clientId);
+            } catch(e) { console.error(e) }
+
+            return new FormErrors([ getGenericServerError(e) ]);
+        }
 
         req.session.userId = user.id;
         req.session.clientId = clientId;
@@ -78,23 +143,34 @@ export default class UserResolver {
         return user;
     }
 
-    @Mutation(() => User, { nullable: true })
+    @Mutation(() => FormResponse)
     async login(
         @Arg("email") email: string,
         @Arg("password") password: string,
         @Ctx() { req }: MyContext
-    ): Promise<User | null> {
+    ): Promise<typeof FormResponse> {
+        const errors: FormError[] = [];
+        pushFieldError(errors, "email", email);
+        pushFieldError(errors, "password", password);
+        if (errors.length) return new FormErrors(errors);
+
         // Wait >= 0.5s and < 0.75s
         // Makes it harder to know if a user has been found
         // Prevents bruteforce attack
         const waitTime = (Math.random() / 4 + 0.5) * 1000;
         await new Promise(resolve => setTimeout(resolve, waitTime));
 
-        const user = await User.findOne({ email });
-        if (!user) return null;
+        let user;
+        try {
+            user = await User.findOne({ email });
+        } catch(e) {
+            return new FormErrors([ getGenericServerError(e) ]);
+        }
+
+        if (!user) return new FormErrors([{ message: "Wrong email or password." }]);
 
         const valid = await argon2.verify(user.password, password);
-        if (!valid) return null;
+        if (!valid) return new FormErrors([{ message: "Wrong email or password." }]);
 
         req.session.userId = user.id;
         req.session.clientId = user.id.toString();
@@ -152,11 +228,7 @@ export default class UserResolver {
         const { id } = user;
         const clientId = id.toString();
 
-        const result = await getManager().transaction(async transaction => {
-            await transaction.delete(Subscription, { userId: id });
-            return await transaction.delete(User, id);
-        });
-
+        const result = await deleteUserInDb(id);
         await rmClientDir(clientId);
 
         return !!result.affected;
