@@ -19,7 +19,7 @@ import { v4 as uuid } from "uuid";
 import { getDownloadLinkKey } from "../redis/keys";
 
 export default class FsResolver {
-    @Query(() => [DirectoryItem])
+    @Query(_returns => [DirectoryItem])
     @UseMiddleware(isAuth)
     async ls(
         @Arg("path", { defaultValue: "/files" }) searchPath: string,
@@ -34,7 +34,7 @@ export default class FsResolver {
         }));
     }
 
-    @Query(() => [TrashDirectoryItem])
+    @Query(_returns => [TrashDirectoryItem])
     @UseMiddleware(isAuth)
     async lsTrash(
         @Ctx() { req }: MyContext
@@ -54,10 +54,10 @@ export default class FsResolver {
         }).filter(item => item) as TrashDirectoryItem[];
     }
 
-    @Mutation(() => [Boolean])
+    @Mutation(_returns => [Boolean])
     @UseMiddleware(isAuth)
     async rm(
-        @Arg("paths", type => [String]) paths: string[],
+        @Arg("paths", _type => [String]) paths: string[],
         @Ctx() { req }: MyContext
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toDeletePath) => {
@@ -74,10 +74,10 @@ export default class FsResolver {
         }));
     }
 
-    @Mutation(() => [Boolean])
+    @Mutation(_returns => [Boolean])
     @UseMiddleware(isAuth)
     async trash(
-        @Arg("paths", type => [String]) paths: string[],
+        @Arg("paths", _type => [String]) paths: string[],
         @Ctx() { req }: MyContext
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toTrashPath) => {
@@ -97,10 +97,10 @@ export default class FsResolver {
         }));
     }
 
-    @Mutation(() => [Boolean])
+    @Mutation(_returns => [Boolean])
     @UseMiddleware(isAuth)
     async restore(
-        @Arg("paths", type => [String]) paths: string[],
+        @Arg("paths", _type => [String]) paths: string[],
         @Ctx() { req }: MyContext
     ): Promise<boolean[]> {
         return Promise.all(paths.map(async (toTrashPath) => {
@@ -120,12 +120,12 @@ export default class FsResolver {
         }));
     }
 
-    @Mutation(() => Boolean)
+    @Mutation(_returns => Boolean)
     @UseMiddleware(isAuth)
     async upload(
         @Arg("path", { defaultValue: "" }) uploadPath: string,
         @Arg("additionalPath", { defaultValue: "" }) additionalPath: string,
-        @Arg("file", type => GraphQLUpload) file: FileUpload,
+        @Arg("file", _type => GraphQLUpload) file: FileUpload,
         @Ctx() { req }: MyContext
     ): Promise<boolean> {
         const { createReadStream, filename, mimetype, encoding } = await file;
@@ -177,7 +177,7 @@ export default class FsResolver {
         return true;
     }
 
-    @Mutation(() => Boolean)
+    @Mutation(_returns => Boolean)
     @UseMiddleware(isAuth)
     async mkdir(
         @Arg("dirname") dirname: string,
@@ -204,7 +204,7 @@ export default class FsResolver {
         return true;
     }
 
-    @Query(() => Int)
+    @Query(_returns => Int)
     @UseMiddleware(isAuth)
     async diskUsage(
         @Ctx() { req }: MyContext
@@ -212,7 +212,7 @@ export default class FsResolver {
         return du(req.session.clientId!);
     }
 
-    @Query(() => [SearchDirectoryItem])
+    @Query(_returns => [SearchDirectoryItem])
     @UseMiddleware(isAuth)
     async search(
         @Arg("pattern") pattern: string,
@@ -249,13 +249,14 @@ export default class FsResolver {
         ).filter(directoryItem => directoryItem.path);
     }
 
-    @Mutation(() => String)
+    @Mutation(_returns => String)
     @UseMiddleware(isAuth)
     async downloadLink(
-        @Arg("paths", type => [String]) paths: string[],
+        @Arg("paths", _type => [String]) paths: string[],
         @Ctx() { req, redis }: MyContext
     ): Promise<string> {
-        //TODO check if paths can be an empty array or not
+        if (!paths.length) throw new Error("Need at least one path to create a download link");
+
         const id = uuid();
         await redis.set(getDownloadLinkKey(req.session.clientId!, id), JSON.stringify(paths), "EX", 60 * 10);
         return id;

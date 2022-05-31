@@ -23,6 +23,7 @@ export default async (orm: Connection, redis: Redis): Promise<Config> => {
                 : ApolloServerPluginLandingPageGraphQLPlayground()
         ],
         context: ({ req, res }): MyContext => ({ req, res, orm, redis }),
+        csrfPrevention: true
         /*formatError: (err) => {
         }*/
     };
