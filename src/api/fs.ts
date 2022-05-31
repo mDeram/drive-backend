@@ -11,8 +11,10 @@ import pathLib from "path";
 const router = express.Router();
 
 router.use((req: RequestSession, res: Response, next: NextFunction) => {
-    //TODO test if it works as intended
-    if (!req.session.userId) res.sendStatus(403); // Forbidden
+    if (!req.session.userId) {
+        res.sendStatus(403) // Forbidden
+        return next("router");
+    }
     next();
 });
 
