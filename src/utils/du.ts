@@ -7,7 +7,6 @@ const du = async (clientId: string): Promise<number | undefined> => {
     const sp = new SafePath(clientId, "/");
 
     try {
-        //TODO security check can finalPath inject commands?
         const { stdout, stderr } = await execAsync(`du -s "${sp.getServerPath()}" | cut -f1`);
         if (stderr) {
             console.error("du", stderr);

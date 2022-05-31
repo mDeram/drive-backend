@@ -3,7 +3,6 @@ import { promisify } from "util";
 const execAsync = promisify(exec);
 
 export const find = async (path: string, pattern: string) => {
-    // TODO check regex insertion in find
     const { stdout, stderr } = await execAsync(
         `find "${path}" -iname "*${pattern}*"`
     );
