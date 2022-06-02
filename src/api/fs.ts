@@ -28,12 +28,6 @@ router.get('/cropped/:filename([^/]*)', (req: RequestSession, res) => {
     fileStream.pipe(resizer).pipe(res);
 });
 
-router.get('/file/:filename([^/]*)', (req: RequestSession, res) => {
-    const sp = new SafePath(req.session.clientId!, req.params.filename);
-
-    res.sendFile(sp.getServerPath(), { dotfiles: "allow" });
-});
-
 router.get('/download/:id([^/]*)', asyncHandler(async (req: RequestSession, res) => {
     const clientId = req.session.clientId!;
     const id = req.params.id;
@@ -66,10 +60,9 @@ router.get('/download/:id([^/]*)', asyncHandler(async (req: RequestSession, res)
         const sp = new SafePath(clientId, path);
         const name = pathLib.basename(sp.get());
         const stats = await fs.stat(sp.getServerPath());
-        if (stats.isDirectory())
-            archive.directory(sp.getServerPath(), name);
-        if (stats.isFile())
-            archive.file(sp.getServerPath(), { name });
+
+        if (stats.isDirectory()) archive.directory(sp.getServerPath(), name);
+        if (stats.isFile())      archive.file(sp.getServerPath(), { name });
     }));
     archive.finalize();
 }));

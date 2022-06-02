@@ -4,6 +4,16 @@ import { fromTrashName, generateTrashName, TrashData } from "./trash";
 
 export type PathType = "client" | "server";
 
+/*
+ * path can be one of those 5 possibilities
+ *
+ * root /
+ * files /files
+ * trash /trash
+ * files item /files/.*
+ * trash item /trash/(^/.)* // this one means no nested folder after /trash
+ */
+
 /**
  * A module to safely use paths
  */
@@ -21,7 +31,8 @@ class SafePath {
 
 
     /**
-     * Throw an error if the cliendId or the clientPath are invalid
+     * Create a safe path
+     * Throw an error if the clientId or the path are invalid
      */
     constructor(clientId: string, path: string, pathType: PathType = "client") {
         this.#setClientIdOrThrow(clientId);
@@ -29,29 +40,61 @@ class SafePath {
     }
 
     /**
+     * Set the clientId
      * Throw an error if the cliendId is invalid
      */
     #setClientIdOrThrow(clientId: string) {
-        const normalizedBasePath = pathLib.join(DRIVE_PATH, clientId);
-        if (!normalizedBasePath.startsWith(DRIVE_PATH)) throw new Error("Invalid clientId");
+        const normalizedBasePath = pathLib.join(DRIVE_PATH, clientId, "/");
+
+        const normalizedDirname = pathLib.dirname(normalizedBasePath);
+        if (normalizedDirname !== DRIVE_PATH) throw new Error("Invalid clientId");
 
         this.#clientId = clientId;
         this.#basePath = normalizedBasePath;
     }
 
     /**
-     * Try to set a new clientPath on the SafePath instance
+     * Set a new path
+     * Throw if the path is invalid
+     * A path is invalid when the normalized path is invalid and if the
+     * normalized path does not match any valid type
      */
     setOrThrow(path: string, pathType: PathType = "client") {
-        this.#path = this.#getNormalizedPathOrThrow(path, pathType);
-        this.#throwOnTrashItemLike();
+        this.#setNormalizedPathOrThrow(path, pathType);
+        if (!this.isRootPath()
+         && !this.isFilesPath()
+         && !this.isTrashPath()
+         && !this.isFilesItem()
+         && !this.isTrashItem()) {
+            throw new Error("Invalid path");
+        }
     }
 
-    getTrashDataOrThrow(): TrashData {
-        const trashData = fromTrashName(pathLib.basename(this.#path));
-        if (!this.isTrashItem() || !trashData) throw new Error("Invalid trash data");
+    /**
+     * Set the normalized path
+     * Throw if the normalized path does not starts with DRIVE_PATH + clientId
+     */
+    #setNormalizedPathOrThrow(path: string, pathType: PathType) {
+        let normalizedPath: string;
+        if (pathType === "client") normalizedPath = pathLib.join(this.#basePath, path);
+        if (pathType === "server") normalizedPath = pathLib.normalize(path);
 
-        return trashData;
+        if (!normalizedPath!.startsWith(this.#basePath)) throw new Error("Invalid path");
+
+        this.#path = normalizedPath!;
+    }
+
+    #getTrashDataOrNull(): TrashData | null {
+        return fromTrashName(pathLib.basename(this.#path));
+    }
+
+    /**
+     * Get the trash data
+     * Throw if the path is not a trash item
+     */
+    getTrashDataOrThrow(): TrashData {
+        if (!this.isTrashItem()) throw new Error("Path is not a trash item");
+        return this.#getTrashDataOrNull()!;
     }
 
     /**
@@ -60,14 +103,14 @@ class SafePath {
     get() {
         let finalPath = this.#path;
         if (this.isTrashItem()) {
-            const name = this.getTrashDataOrThrow().name;
+            const name = this.#getTrashDataOrNull()!.name;
             finalPath = pathLib.join(pathLib.dirname(this.#path), name);
         }
-        return finalPath.slice(this.#basePath.length);
+        return finalPath.slice(this.#basePath.length - 1);
     }
 
     /**
-     * Get the path on the disk
+     * Get the path on the disk, should not be shared publicly
      */
     getServerPath() {
         return this.#path;
@@ -75,6 +118,7 @@ class SafePath {
 
     /**
      * Try to turn a files item into a trash item
+     * Throw if the initial path is not a files item
      */
     filesItemToTrashItemOrThrow() {
         if (!this.isFilesItem()) throw new Error("Invalid files item");
@@ -86,6 +130,10 @@ class SafePath {
         this.setOrThrow(trashItem);
     }
 
+    /**
+     * Try to turn a trash item into a files item
+     * Throw if the initial path is not a trash item
+     */
     trashItemToFilesItemOrThrow() {
         if (!this.isTrashItem()) throw new Error("Invalid trash item");
 
@@ -97,72 +145,48 @@ class SafePath {
     }
 
     /**
-     * Compute the normalized path, if the path is valid:
-     * starts with the DRIVE_PATH + cliendId return true
-     * otherwise throw
+     * Returns a boolean indicating if the path if equal to DRIVE_PATH + clientId
      */
-    #getNormalizedPathOrThrow(path: string, pathType: PathType): string {
-        let normalizedPath: string;
-        if (pathType === "client") normalizedPath = pathLib.join(this.#basePath, path);
-        if (pathType === "server") normalizedPath = pathLib.normalize(path);
-
-        if (!normalizedPath!.startsWith(this.#basePath)) throw new Error("Invalid path");
-
-        return normalizedPath!;
+    isRootPath(): boolean {
+        //console.log(this.#basePath, this.#path);
+        return this.#basePath === this.#path;
     }
 
     /**
-     * Return true when the path contain the FILES_DIR at the right place
-     * otherwise return false
+     * Returns a boolean indicating if the path if equal to
+     * DRIVE_PATH + clientId + FILES_DIR
      */
-    hasFilesPath(): boolean {
-        return this.#path.startsWith(pathLib.join(this.#basePath, FILES_DIR));
+    isFilesPath(): boolean {
+        return pathLib.join(this.#basePath, FILES_DIR) === this.#path;
     }
 
     /**
-     * Return true when the path is a valid files item
-     * A valid files item have a path like:
-     * DRIVE_PATH + cliendId + FILES_DIR + any_path
-     * otherwise return false
+     * Returns a boolean indicating if the path if equal to
+     * DRIVE_PATH + clientId + TRASH_DIR
+     */
+    isTrashPath(): boolean {
+        return pathLib.join(this.#basePath, TRASH_DIR) === this.#path;
+    }
+
+    /**
+     * Returns a boolean indicating if the dirname of the path starts with
+     * DRIVE_PATH + clientId + FILES_DIR
      */
     isFilesItem(): boolean {
-        const pathLenghtGreaterThanFilesPath = this.#path.length > pathLib.join(this.#basePath, FILES_DIR).length;
-        return this.hasFilesPath() && pathLenghtGreaterThanFilesPath;
-    }
-
-    /*
-     * Return true when the path contain the TRASH_DIR at the right place
-     * otherwise return false
-     */
-    hasTrashPath(): boolean {
-        return this.#path.startsWith(pathLib.join(this.#basePath, TRASH_DIR));
+        const dirname = pathLib.dirname(this.#path);
+        return dirname.startsWith(pathLib.join(this.#basePath, FILES_DIR));
     }
 
     /**
-     * Return true when the path is a valid trash item
-     * A valid trash item have a path like:
-     * DRIVE_PATH + cliendId + TRASH_DIR + /a_path_with_a_single_slash
-     * otherwise return false
+     * Returns a boolean indicating if the dirname of the path is equal to
+     * DRIVE_PATH + clientId + TRASH_DIR and if the trash data of the basename
+     * is valid
      */
     isTrashItem(): boolean {
-        const pathEqualToTrashPath = pathLib.dirname(this.#path) === pathLib.join(this.#basePath, TRASH_DIR);
-        return this.hasTrashPath() && pathEqualToTrashPath;
-    }
-
-    /**
-     * If the item is trash like but not a trash item throws.
-     * Meaning it has a trash path but is not the trash dir and the basename
-     * is equal to the trash dir respecting the flat trash directory.
-     */
-    #throwOnTrashItemLike() {
-        if (!this.hasTrashPath()) return;
-        const isTrashDir = this.#path === pathLib.join(this.#basePath, TRASH_DIR);
-        if (isTrashDir) return;
-
-        const pathEqualToTrashPath = pathLib.dirname(this.#path) === pathLib.join(this.#basePath, TRASH_DIR);
-        if (!pathEqualToTrashPath) throw new Error("Invalid trash path");
-
-        this.getTrashDataOrThrow();
+        const dirname = pathLib.dirname(this.#path);
+        const isPathValid = pathLib.join(this.#basePath, TRASH_DIR) === dirname;
+        const isTrashDataValid = !!this.#getTrashDataOrNull();
+        return (isPathValid && isTrashDataValid);
     }
 }
 

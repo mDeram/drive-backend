@@ -44,6 +44,7 @@ async function payment(event: Stripe.Event) {
     const user = await User.findOne({ email });
 
     //TODO handle the fact that someone paid without having an account with that email, by sending them an email for e.g.
+    //Send email to claim the payment by connecting to the cloud
     if (!user) return;
 
     const { from, to, error } = getSubscriptionDates(amount);
@@ -74,15 +75,14 @@ async function refund(event: Stripe.Event) {
 
 router.post('/', express.raw({ type: "application/json" }), (req, res) => {
     const sig = req.headers["stripe-signature"];
-    if (!sig) res.sendStatus(403);
+    if (!sig) return res.sendStatus(403);
 
     let event;
 
     try {
-        event = stripe.webhooks.constructEvent(req.body, sig!, process.env.STRIPE_ENDPOINT || "");
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_ENDPOINT || "");
     } catch (e) {
-        res.status(400).send(`Webhook Error: ${e.message}`);
-        return;
+        return res.status(400).send(`Webhook Error: ${e.message}`);
     }
 
     // Handle the event
@@ -99,7 +99,7 @@ router.post('/', express.raw({ type: "application/json" }), (req, res) => {
     }
 
     // Return a 200 response to acknowledge receipt of the event
-    res.send();
+    return res.send();
 });
 
 export default router;

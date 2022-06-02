@@ -133,15 +133,16 @@ export default class FsResolver {
 
         const safeOutPath = new SafePath(clientId, pathLib.join(uploadPath, additionalPath, filename));
         const safeDirPath = new SafePath(clientId, pathLib.join(uploadPath, additionalPath));
-        if (!safeDirPath.hasFilesPath()) return false;
-
-        await fs.mkdir(safeDirPath.getServerPath(), { recursive: true });
+        if (!safeOutPath.isFilesItem()) return false;
 
         const diskUsage = await du(clientId);
         if (!diskUsage) return false;
 
         const user = await User.findOneOrFail(req.session.userId);
         const maxUsage = getSubscriptionSize(user.currentSubscription);
+
+        if (diskUsage > maxUsage) return false;
+        await fs.mkdir(safeDirPath.getServerPath(), { recursive: true });
 
         let totalLength = 0;
         let cancelUpload = false;
