@@ -118,9 +118,9 @@ export default class UserResolver {
         try {
             user = await User.create({ username, email, password: hash }).save();
         } catch(e) {
-            console.log(e);
             if (e.code === '35505' || e.detail.includes("already exists"))
                 return new FormErrors([{ message: "Email already taken." }]);
+            console.error(e);
             return new FormErrors([ getGenericServerError(e) ]);
         }
 
@@ -186,31 +186,6 @@ export default class UserResolver {
             res.clearCookie(SESSION_COOKIE);
             resolve(!err);
         }));
-    }
-
-    @Mutation(() => Boolean)
-    async resetUser(
-        @Arg("email") email: string,
-        @Arg("password") password: string,
-        @Arg("subscription", { defaultValue: false }) subscription: boolean
-    ): Promise<boolean> {
-        //TODO send an email with confirmation link
-        const user = await User.findOne({ email });
-        if (!user) return false;
-
-        const valid = await argon2.verify(user.password, password);
-        if (!valid) return false;
-
-        const { id } = user;
-        const clientId = id.toString();
-
-        if (subscription)
-            Subscription.delete({ userId: id });
-
-        await rmClientDir(clientId);
-        await mkDefaultDir(clientId);
-
-        return true;
     }
 
     @Mutation(() => Boolean)

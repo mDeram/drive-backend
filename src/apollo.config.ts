@@ -11,11 +11,15 @@ import FsResolver from "./resolvers/fs";
 import UserResolver from "./resolvers/user";
 import { Connection } from "typeorm";
 import { Redis } from "ioredis";
+import TestResolver from "./resolvers/test";
 
 export default async (orm: Connection, redis: Redis): Promise<Config> => {
+    const resolvers: Function[] = [FsResolver, UserResolver];
+    if (!___prod___) resolvers.push(TestResolver);
+
     return {
         schema: await buildSchema({
-            resolvers: [FsResolver, UserResolver],
+            resolvers: resolvers as any
         }),
         plugins: [
             ___prod___
