@@ -147,9 +147,44 @@ export default class FsResolver {
         let totalLength = 0;
         let cancelUpload = false;
 
+        let outFile;
+        while (!outFile) {
+            try {
+                outFile = await fs.open(safeOutPath.getServerPath(), "wx"); // "wx" -> write, fail if path exists already
+            } catch(e) {
+                if (e.code !== "EEXIST") {
+                    console.error("rm upload", e)
+                    return false
+                }
+
+                console.log("kek");
+                const dirname = pathLib.dirname(safeOutPath.get());
+                const basename = pathLib.basename(safeOutPath.get());
+                const extname = pathLib.extname(basename);
+
+                const basenameWithoutExtname = extname.length
+                    ? basename.slice(0, - extname.length)
+                    : basename;
+
+                // The regex match "([0-9])" at the end of the name and create a
+                // group to get the number
+                const suffixMatch = basenameWithoutExtname.match(/\((\d+)\)$/);
+
+                const newBasenameWithoutExtname = suffixMatch
+                    ? basenameWithoutExtname.slice(0, - suffixMatch[0].length)
+                    : basenameWithoutExtname;
+
+                const newSuffixNumber = suffixMatch
+                    ? parseInt(suffixMatch[1]) + 1
+                    : 1;
+
+                safeOutPath.setOrThrow(pathLib.join(dirname, newBasenameWithoutExtname + "(" + newSuffixNumber + ")" + extname));
+            }
+        }
+
+        const out = outFile.createWriteStream();
         const stream = createReadStream();
         stream.on("error", console.error);
-        const out = syncFs.createWriteStream(safeOutPath.getServerPath());
         stream.on("data", (chunk) => {
             totalLength += chunk.length;
             if (diskUsage + (totalLength / 1024) > maxUsage) {
@@ -238,8 +273,9 @@ export default class FsResolver {
 
         return (await Promise.all(
             resultArray.map(async (filename) => {
-                const stat = await fs.stat(filename);
-                const clientPath = new SafePath(req.session.clientId!, filename, "server").get();
+                const safePath = new SafePath(req.session.clientId!, filename, "server");
+                const clientPath = safePath.get();
+                const stat = await fs.stat(safePath.getServerPath());
 
                 return {
                     type: stat.isDirectory() ? "folder" : "file",
