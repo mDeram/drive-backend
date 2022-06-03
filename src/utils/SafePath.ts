@@ -75,9 +75,10 @@ class SafePath {
      * Throw if the normalized path does not starts with DRIVE_PATH + clientId
      */
     #setNormalizedPathOrThrow(path: string, pathType: PathType) {
+        const validCharPath = path.replace(/\0/g, "");
         let normalizedPath: string;
-        if (pathType === "client") normalizedPath = pathLib.join(this.#basePath, path);
-        if (pathType === "server") normalizedPath = pathLib.normalize(path);
+        if (pathType === "client") normalizedPath = pathLib.join(this.#basePath, validCharPath);
+        if (pathType === "server") normalizedPath = pathLib.normalize(validCharPath);
 
         if (!normalizedPath!.startsWith(this.#basePath)) throw new Error("Invalid path");
 
