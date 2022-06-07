@@ -157,7 +157,6 @@ export default class FsResolver {
                     return false
                 }
 
-                console.log("kek");
                 const dirname = pathLib.dirname(safeOutPath.get());
                 const basename = pathLib.basename(safeOutPath.get());
                 const extname = pathLib.extname(basename);

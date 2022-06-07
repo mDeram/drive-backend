@@ -37,7 +37,8 @@ const main = async () => {
             maxAge: 1000 * 3600 * 24 * 10, // 10 days
             secure: ___prod___,
             sameSite: "lax",
-            httpOnly: true
+            httpOnly: true,
+            domain: ___prod___ ? "drive.mderam.com" : undefined
         },
         secret: process.env.COOKIE_SECRET || "",
         resave: false,

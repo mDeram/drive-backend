@@ -12,6 +12,9 @@ import rmClientDir from "../utils/rmDefaultDir";
 import getFirstValidationError from "../utils/getFirstValidationError";
 import validators from "../utils/validators";
 import getGenericServerError from "../utils/getGenericServerError";
+import { sendRegisterConfirmationEmail } from "../utils/sendEmail";
+import { v4 as uuid } from "uuid";
+import { getRegisterConfirmationKey } from "../redis/keys";
 
 function deleteUserInDb(id: number) {
     return getManager().transaction(async transaction => {
@@ -49,9 +52,24 @@ class FormErrors {
     }
 }
 
-const FormResponse = createUnionType({
-    name: "FormResponse",
+@ObjectType()
+class BooleanResponse {
+    @Field()
+    response: boolean;
+
+    constructor(response: boolean) {
+        this.response = response;
+    }
+}
+
+const UserFormResponse = createUnionType({
+    name: "UserFormResponse",
     types: () => [User, FormErrors] as const
+});
+
+const BooleanFormResponse = createUnionType({
+    name: "BooleanFormResponse",
+    types: () => [BooleanResponse, FormErrors] as const
 });
 
 @Resolver(User)
@@ -101,11 +119,11 @@ export default class UserResolver {
         return user;
     }
 
-    @Mutation(() => FormResponse)
+    @Mutation(() => BooleanFormResponse)
     async register(
         @Arg("inputs") { username, email, password }: RegisterInput,
-        @Ctx() { req }: MyContext
-    ): Promise<typeof FormResponse> {
+        @Ctx() { redis }: MyContext
+    ): Promise<typeof BooleanFormResponse> {
         const errors: FormError[] = [];
         pushFieldError(errors, "username", username);
         pushFieldError(errors, "email", email);
@@ -118,11 +136,36 @@ export default class UserResolver {
         try {
             user = await User.create({ username, email, password: hash }).save();
         } catch(e) {
-            if (e.code === '35505' || e.detail.includes("already exists"))
+            if (e.code !== '35505' && !e.detail.includes("already exists")) {
+                console.error(e);
+                return new FormErrors([ getGenericServerError(e) ]);
+            }
+
+            user = await User.findOne({ email });
+            // User does not exists or exists but is confirmed already
+            if (!user || user.confirmed)
                 return new FormErrors([{ message: "Email already taken." }]);
-            console.error(e);
-            return new FormErrors([ getGenericServerError(e) ]);
         }
+
+        const token = uuid();
+        const oneDayInMs = 1000 * 3600 * 24;
+        await redis.set(getRegisterConfirmationKey(token), user.id, "ex", oneDayInMs);
+        await sendRegisterConfirmationEmail(user.username, user.email, token);
+
+        return new BooleanResponse(true);
+    }
+
+    @Mutation(() => UserFormResponse)
+    async confirmRegister(
+        @Arg("token") token: string,
+        @Ctx() { req, redis }: MyContext
+    ): Promise<typeof UserFormResponse> {
+        const key = getRegisterConfirmationKey(token);
+        const userId = await redis.get(key);
+        if (!userId) return new FormErrors([{ field: "token", message: "Token expired" }]);
+
+        const user = await User.findOne(parseInt(userId));
+        if (!user) return new FormErrors([{ field: "token", message: "User no longer exists." }]);
 
         const clientId = user.id.toString();
 
@@ -130,12 +173,15 @@ export default class UserResolver {
             await mkDefaultDir(clientId);
         } catch(e) {
             try {
-                await deleteUserInDb(user.id);
                 await rmClientDir(clientId);
             } catch(e) { console.error(e) }
 
             return new FormErrors([ getGenericServerError(e) ]);
         }
+
+        user.confirmed = true;
+        await user.save();
+        await redis.del(key);
 
         req.session.userId = user.id;
         req.session.clientId = clientId;
@@ -143,12 +189,12 @@ export default class UserResolver {
         return user;
     }
 
-    @Mutation(() => FormResponse)
+    @Mutation(() => UserFormResponse)
     async login(
         @Arg("email") email: string,
         @Arg("password") password: string,
         @Ctx() { req }: MyContext
-    ): Promise<typeof FormResponse> {
+    ): Promise<typeof UserFormResponse> {
         const errors: FormError[] = [];
         pushFieldError(errors, "email", email);
         pushFieldError(errors, "password", password);
@@ -168,8 +214,11 @@ export default class UserResolver {
         }
 
         if (!user) return new FormErrors([{ message: "Wrong email or password." }]);
+        //TODO resend code button
+        if (!user.confirmed) return new FormErrors([{ message: "Registration not finished, validate your email first." }]);
 
         const valid = await argon2.verify(user.password, password);
+        //TODO If the user exist ask if he need help
         if (!valid) return new FormErrors([{ message: "Wrong email or password." }]);
 
         req.session.userId = user.id;

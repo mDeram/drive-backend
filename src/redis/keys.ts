@@ -7,3 +7,6 @@ export const getSessionPrefix = () => getPrefix("sess");
 
 export const getDownloadLinkPrefix = () => getPrefix("downloadLink");
 export const getDownloadLinkKey = (clientId: string, id: string) => getDownloadLinkPrefix() + assemble([clientId, id]);
+
+export const getRegisterConfirmationPrefix = () => getPrefix("registerConfirmation");
+export const getRegisterConfirmationKey = (token: string) => getRegisterConfirmationPrefix() + token;

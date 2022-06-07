@@ -8,8 +8,10 @@ specifiers:
   '@types/express': ^4.17.13
   '@types/express-session': ^1.17.4
   '@types/graphql-upload': ^8.0.11
+  '@types/ioredis': '4'
   '@types/mocha': ^9.1.1
   '@types/node': ^17.0.17
+  '@types/nodemailer': ^6.4.4
   '@types/sharp': ^0.30.2
   '@types/uuid': ^8.3.4
   '@types/validator': ^13.7.2
@@ -27,8 +29,9 @@ specifiers:
   express-session: ^1.17.2
   graphql: ^15.8.0
   graphql-upload: ^13.0.0
-  ioredis: ^4.28.5
+  ioredis: '4'
   mocha: ^10.0.0
+  nodemailer: ^6.7.5
   nyc: ^15.1.0
   pg: ^8.7.3
   reflect-metadata: ^0.1.13
@@ -56,6 +59,7 @@ dependencies:
   graphql: 15.8.0
   graphql-upload: 13.0.0_graphql@15.8.0
   ioredis: 4.28.5
+  nodemailer: 6.7.5
   pg: 8.7.3
   reflect-metadata: 0.1.13
   sharp: 0.30.4
@@ -73,8 +77,10 @@ devDependencies:
   '@types/express': 4.17.13
   '@types/express-session': 1.17.4
   '@types/graphql-upload': 8.0.11
+  '@types/ioredis': 4.28.10
   '@types/mocha': 9.1.1
   '@types/node': 17.0.30
+  '@types/nodemailer': 6.4.4
   '@types/sharp': 0.30.2
   '@types/uuid': 8.3.4
   '@types/validator': 13.7.2
@@ -721,6 +727,12 @@ packages:
 
   /@types/node/17.0.30:
     resolution: {integrity: sha512-oNBIZjIqyHYP8VCNAV9uEytXVeXG2oR0w9lgAXro20eugRQfY002qr3CUl6BAe+Yf/z3CRjPdz27Pu6WWtuSRw==}
+
+  /@types/nodemailer/6.4.4:
+    resolution: {integrity: sha512-Ksw4t7iliXeYGvIQcSIgWQ5BLuC/mljIEbjf615svhZL10PE9t+ei8O9gDaD3FPCasUJn9KTLwz2JFJyiiyuqw==}
+    dependencies:
+      '@types/node': 17.0.30
+    dev: true
 
   /@types/qs/6.9.7:
     resolution: {integrity: sha512-FGa1F62FT09qcrueBA6qYTrJPVDzah9a+493+o2PCXsesWHIn27G98TsSMs3WPNbZIEj4+VJf6saSFpvD+3Zsw==}
@@ -2276,7 +2288,7 @@ packages:
     dev: true
 
   /lodash.defaults/4.2.0:
-    resolution: {integrity: sha1-0JF4cW/+pN3p5ft7N/bwgCJ0WAw=}
+    resolution: {integrity: sha512-qjxPLHd3r5DnsdGacqOMU6pb/avJzdh9tFX2ymgoZE27BmjXrNy/y4LoaiTeAb+O3gL8AfpJGtqfX/ae2leYYQ==}
     dev: false
 
   /lodash.difference/4.5.0:
@@ -2284,7 +2296,7 @@ packages:
     dev: false
 
   /lodash.flatten/4.4.0:
-    resolution: {integrity: sha1-8xwiIlqWMtK7+OSt2+8kCqdlph8=}
+    resolution: {integrity: sha512-C5N2Z3DgnnKr0LOpv/hKCgKdb7ZZwafIrsesve6lmzvZIRZRGaZ/l6Q8+2W7NaT+ZwO3fFlSCzCzrDCFdJfZ4g==}
     dev: false
 
   /lodash.flattendeep/4.4.0:
@@ -2296,7 +2308,7 @@ packages:
     dev: false
 
   /lodash.isarguments/3.1.0:
-    resolution: {integrity: sha1-L1c9hcaiQon/AGY7SRwdM4/zRYo=}
+    resolution: {integrity: sha512-chi4NHZlZqZD18a0imDHnZPrDeBbTtVN7GXMwuGdRH9qotxAjYs3aVLKc7zNOG9eddR5Ksd8rvFEBc9SsggPpg==}
     dev: false
 
   /lodash.isplainobject/4.0.6:
@@ -2524,6 +2536,11 @@ packages:
   /node-releases/2.0.4:
     resolution: {integrity: sha512-gbMzqQtTtDz/00jQzZ21PQzdI9PyLYqUSvD0p3naOhX4odFji0ZxYdnVwPTxmSwkmxhcFImpozceidSG+AgoPQ==}
     dev: true
+
+  /nodemailer/6.7.5:
+    resolution: {integrity: sha512-6VtMpwhsrixq1HDYSBBHvW0GwiWawE75dS3oal48VqRhUvKJNnKnJo2RI/bCVQubj1vgrgscMNW4DHaD6xtMCg==}
+    engines: {node: '>=6.0.0'}
+    dev: false
 
   /nopt/5.0.0:
     resolution: {integrity: sha512-Tbj67rffqceeLpcRXrT7vKAN8CwfPeIBgM7E6iBkmKLV7bEMwpGgYLGv0jACUsECaa/vuxP0IjEont6umdMgtQ==}
