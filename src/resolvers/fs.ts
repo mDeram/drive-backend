@@ -1,5 +1,5 @@
 import { Arg, Ctx, Int, Mutation, Query, UseMiddleware } from "type-graphql";
-import syncFs, { promises as fs } from "fs";
+import { promises as fs } from "fs";
 import pathLib from "path";
 import { FileUpload, GraphQLUpload } from "graphql-upload";
 import { finished } from "stream/promises";

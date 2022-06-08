@@ -100,16 +100,12 @@ export default class UserResolver {
     }
 
     @Query(() => User, { nullable: true })
+    @UseMiddleware(isAuth)
     async user(
         @Ctx() { req }: MyContext
-    ): Promise<User | null> {
-        if (!req.session.userId) return null;
-
-        const user = await User.findOneOrFail(req.session.userId);
-
+    ): Promise<User> {
         //const subscriptions = await Subscription.findOne(user.id);
-
-        return user;
+        return User.findOneOrFail(req.session.userId!);
     }
 
     @Mutation(() => BooleanFormResponse)
@@ -238,7 +234,7 @@ export default class UserResolver {
         @Arg("password") password: string,
         @Ctx() { req, redis }: MyContext
     ): Promise<typeof BooleanFormResponse> {
-        const id = req.session.userId;
+        const id = req.session.userId!;
 
         const user = await User.findOne(id);
         if (!user) return new FormErrors([{ message: "Try logging out and logging back in." }]);
