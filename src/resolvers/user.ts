@@ -1,27 +1,20 @@
-import { Arg, createUnionType, Ctx, Field, FieldResolver, Int, Mutation, ObjectType, Query, Resolver, Root } from "type-graphql";
+import { Arg, createUnionType, Ctx, Field, FieldResolver, Int, Mutation, ObjectType, Query, Resolver, Root, UseMiddleware } from "type-graphql";
 import User from "../entities/User";
 import RegisterInput from "../inputs/RegisterInput";
 import { MyContext } from "../types";
 import argon2 from "argon2";
-import { SESSION_COOKIE } from "../constants";
-import Subscription from "../entities/Subscription";
 import getSubscriptionSize from "../utils/getSubscriptionSize";
-import { getManager } from "typeorm";
 import mkDefaultDir from "../utils/mkDefaultDir";
 import rmClientDir from "../utils/rmDefaultDir";
 import getFirstValidationError from "../utils/getFirstValidationError";
 import validators from "../utils/validators";
 import getGenericServerError from "../utils/getGenericServerError";
-import { sendRegisterConfirmationEmail } from "../utils/sendEmail";
+import { sendDeleteUserConfirmationEmail, sendRegisterConfirmationEmail } from "../utils/sendEmail";
 import { v4 as uuid } from "uuid";
-import { getRegisterConfirmationKey } from "../redis/keys";
-
-function deleteUserInDb(id: number) {
-    return getManager().transaction(async transaction => {
-        await transaction.delete(Subscription, { userId: id });
-        return await transaction.delete(User, id);
-    });
-}
+import { getDeleteUserConfirmationKey, getRegisterConfirmationKey } from "../redis/keys";
+import isAuth from "../middlewares/isAuth";
+import destroySession from "../utils/destroySession";
+import deleteUserInDb from "../utils/deleteUserInDb";
 
 function pushFieldError(errors: FormError[], name: string, value: string) {
     const error = getFirstValidationError((validators as any)[name], value);
@@ -149,8 +142,13 @@ export default class UserResolver {
 
         const token = uuid();
         const oneDayInMs = 1000 * 3600 * 24;
-        await redis.set(getRegisterConfirmationKey(token), user.id, "ex", oneDayInMs);
-        await sendRegisterConfirmationEmail(user.username, user.email, token);
+        try {
+            await redis.set(getRegisterConfirmationKey(token), user.id, "ex", oneDayInMs);
+            await sendRegisterConfirmationEmail(user.username, user.email, token);
+        } catch(e) {
+            console.error("register", e);
+            return new BooleanResponse(false);
+        }
 
         return new BooleanResponse(true);
     }
@@ -165,7 +163,7 @@ export default class UserResolver {
         if (!userId) return new FormErrors([{ field: "token", message: "Token expired" }]);
 
         const user = await User.findOne(parseInt(userId));
-        if (!user) return new FormErrors([{ field: "token", message: "User no longer exists." }]);
+        if (!user) return new FormErrors([{ field: "token", message: "User no longer exists" }]);
 
         const clientId = user.id.toString();
 
@@ -215,10 +213,10 @@ export default class UserResolver {
 
         if (!user) return new FormErrors([{ message: "Wrong email or password." }]);
         //TODO resend code button
-        if (!user.confirmed) return new FormErrors([{ message: "Registration not finished, validate your email first." }]);
+        if (!user.confirmed) return new FormErrors([{ message: "Registration not finished, please validate your email first." }]);
 
         const valid = await argon2.verify(user.password, password);
-        //TODO If the user exist ask if he need help
+        //TODO If the user exist (or not btw) ask if he need help
         if (!valid) return new FormErrors([{ message: "Wrong email or password." }]);
 
         req.session.userId = user.id;
@@ -231,30 +229,53 @@ export default class UserResolver {
     logout(
         @Ctx() { req, res }: MyContext
     ): Promise<boolean> {
-        return new Promise(resolve => req.session.destroy(err => {
-            res.clearCookie(SESSION_COOKIE);
-            resolve(!err);
-        }));
+        return destroySession(req, res);
     }
 
-    @Mutation(() => Boolean)
+    @Mutation(() => BooleanFormResponse)
+    @UseMiddleware(isAuth)
     async deleteUser(
-        @Arg("email") email: string,
-        @Arg("password") password: string
-    ): Promise<boolean> {
-        //TODO send an email with confirmation link
-        const user = await User.findOne({ email });
-        if (!user) return false;
+        @Arg("password") password: string,
+        @Ctx() { req, redis }: MyContext
+    ): Promise<typeof BooleanFormResponse> {
+        const id = req.session.userId;
+
+        const user = await User.findOne(id);
+        if (!user) return new FormErrors([{ message: "Try logging out and logging back in." }]);
 
         const valid = await argon2.verify(user.password, password);
-        if (!valid) return false;
+        if (!valid) return new FormErrors([{ message: "Wrong password." }]);
 
-        const { id } = user;
-        const clientId = id.toString();
+        const token = uuid();
+        const oneDayInMs = 1000 * 3600 * 24;
+        try {
+            await redis.set(getDeleteUserConfirmationKey(token), user.id, "ex", oneDayInMs);
+            await sendDeleteUserConfirmationEmail(user.username, user.email, token);
+        } catch(e) {
+            console.error("deleteUser", e);
+            return new FormErrors([{ message: "An error occured, try again later." }]);
+        }
 
-        const result = await deleteUserInDb(id);
+        return new BooleanResponse(true);
+    }
+
+    @Mutation(() => BooleanFormResponse)
+    async confirmDeleteUser(
+        @Arg("token") token: string,
+        @Ctx() { req, res, redis }: MyContext
+    ): Promise<typeof BooleanFormResponse> {
+        const key = getDeleteUserConfirmationKey(token);
+        const userId = await redis.get(key);
+        if (!userId) return new FormErrors([{ field: "token", message: "Token expired" }]);
+
+        const user = await User.findOne(parseInt(userId));
+        if (!user) return new FormErrors([{ field: "token", message: "User no longer exists" }]);
+
+        const clientId = user.id.toString();
+
+        await deleteUserInDb(user.id);
         await rmClientDir(clientId);
 
-        return !!result.affected;
+        return new BooleanResponse(await destroySession(req, res));
     }
 }

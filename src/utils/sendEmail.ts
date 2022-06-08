@@ -49,4 +49,33 @@ export const sendRegisterConfirmationEmail = async (name: string, to: string, to
     `);
 }
 
+export const sendDeleteUserConfirmationEmail = async (name: string, to: string, token: string) => {
+    const confirmationUrl = "http://localhost:3000/delete-user-confirmation?token=" + token;
+    //TODO if the user did not make the request, someone logged in their account, implement a way to log out every user
+    //logged in this account and also implement a change password feature.
+
+    sendEmail(to, "Mderam Drive Account Deletion", `
+        <!DOCTYPE html>
+        <html lang="en">
+        <body>
+            <b>Hello ${name},</b><br/>
+            You asked the deletion of your account,<br/>
+            your account and any associated data will be deleted,<br/>
+            which includes all files currently stored on the drive, your subscription informations and all your personnal data.<br/>
+            Note that once deleted an account cannot be refounded for any subscription since the subscription informations are deleted too.<br/>
+            To confirm the deletion, click on the link bellow:<br/>
+            <br/>
+            <b><a href="${confirmationUrl}">${confirmationUrl}</a></b><br/>
+            <br/>
+            The link is valid for 1 day, after that you will have to ask for your account deletion again,
+            if you have not made this request you should change your password as soon as possible,
+            someone logged into your account.<br/>
+            <br/>
+            Thank you,<br/>
+            Mderam Drive
+        </body>
+        </html>
+    `);
+}
+
 export default sendEmail;

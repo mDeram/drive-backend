@@ -10,3 +10,6 @@ export const getDownloadLinkKey = (clientId: string, id: string) => getDownloadL
 
 export const getRegisterConfirmationPrefix = () => getPrefix("registerConfirmation");
 export const getRegisterConfirmationKey = (token: string) => getRegisterConfirmationPrefix() + token;
+
+export const getDeleteUserConfirmationPrefix = () => getPrefix("deleteUserConfirmation");
+export const getDeleteUserConfirmationKey = (token: string) => getDeleteUserConfirmationPrefix() + token;
