@@ -100,12 +100,13 @@ export default class UserResolver {
     }
 
     @Query(() => User, { nullable: true })
-    @UseMiddleware(isAuth)
     async user(
         @Ctx() { req }: MyContext
-    ): Promise<User> {
+    ): Promise<User | null> {
+        if (!req.session.userId) return null;
+
         //const subscriptions = await Subscription.findOne(user.id);
-        return User.findOneOrFail(req.session.userId!);
+        return User.findOneOrFail(req.session.userId);
     }
 
     @Mutation(() => BooleanFormResponse)
