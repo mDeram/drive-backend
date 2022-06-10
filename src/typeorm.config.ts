@@ -6,9 +6,9 @@ import Subscription from "./entities/Subscription";
 
 export default {
     type: "postgres",
-    database: "cloud",
-    username: ___prod___ ? "cloud" : "postgres",
-    password: process.env.DB_PASS,
+    database: process.env.POSTGRES_DB,
+    username: process.env.POSTGRES_USER,
+    password: process.env.POSTGRES_PASSWORD,
     logging: !___prod___,
     synchronize: !___prod___,
     entities: [User, Subscription],

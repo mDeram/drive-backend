@@ -56,8 +56,8 @@ const main = async () => {
 
     app.use(cors(corsOptions));
 
-    app.use('/api/webhook', webhook);
-    app.use('/api/fs', fsApi);
+    app.use('/webhook', webhook);
+    app.use('/fs', fsApi);
 
     app.use(graphqlUploadExpress());
 
