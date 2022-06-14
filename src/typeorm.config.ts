@@ -6,6 +6,7 @@ import Subscription from "./entities/Subscription";
 
 export default {
     type: "postgres",
+    host: !___prod___ ? undefined : "postgres",
     database: process.env.POSTGRES_DB,
     username: process.env.POSTGRES_USER,
     password: process.env.POSTGRES_PASSWORD,

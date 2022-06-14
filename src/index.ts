@@ -15,7 +15,9 @@ import fsApi from "./api/fs";
 import webhook from "./api/webhook";
 import { getSessionPrefix } from "./redis/keys";
 
-export const redis = new Redis();
+export const redis = !___prod___
+    ? new Redis()
+    : new Redis("redis");
 
 const main = async () => {
     const orm = await createConnection(typeormConfig);

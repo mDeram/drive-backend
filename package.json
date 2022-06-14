@@ -14,8 +14,8 @@
     "typeorm": "node --require ts-node/register ./node_modules/typeorm/cli.js",
     "migration:generate": "npm run typeorm migration:generate -- -n",
     "migration:run": "npm run typeorm migration:run",
-    "docker:build": "sudo docker build -t mderam/cloud-backend",
-    "docker:push": "sudo docker push mderam/cloud-frontend",
+    "docker:build": "sudo docker build -t mderam/cloud-backend .",
+    "docker:push": "sudo docker push mderam/cloud-backend",
     "docker:build-push": "npm run docker:build && npm run docker:push"
   },
   "keywords": [],

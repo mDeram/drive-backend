@@ -1,11 +1,13 @@
 import nodemailer from "nodemailer";
 import { ___prod___ } from "../constants";
 
+if (!process.env.FRONT_URL) throw new Error("Missing environment variable FRONT_URL");
+
 const sendEmail = async (to: string, subject: string, html: string) => {
     const test = !___prod___ && to.endsWith("@test.com");
 
     const transporter = nodemailer.createTransport({
-        host: "127.0.0.1",
+        host: !___prod___ ? "127.0.0.1" : "host.docker.internal",
         port: test ? 7777 : 1025,
         secure: false,
         auth: {
@@ -28,7 +30,7 @@ const sendEmail = async (to: string, subject: string, html: string) => {
 }
 
 export const sendRegisterConfirmationEmail = async (name: string, to: string, token: string) => {
-    const confirmationUrl = "http://localhost:3000/register-confirmation?token=" + token;
+    const confirmationUrl = process.env.FRONT_URL + "/register-confirmation?token=" + token;
 
     sendEmail(to, "Mderam Drive Account Creation", `
         <!DOCTYPE html>
@@ -50,7 +52,7 @@ export const sendRegisterConfirmationEmail = async (name: string, to: string, to
 }
 
 export const sendDeleteUserConfirmationEmail = async (name: string, to: string, token: string) => {
-    const confirmationUrl = "http://localhost:3000/delete-user-confirmation?token=" + token;
+    const confirmationUrl = process.env.FRONT_URL + "/delete-user-confirmation?token=" + token;
     //TODO if the user did not make the request, someone logged in their account, implement a way to log out every user
     //logged in this account and also implement a change password feature.
 
