@@ -9,9 +9,9 @@ import rmClientDir from "../utils/rmDefaultDir";
 import getFirstValidationError from "../utils/getFirstValidationError";
 import validators from "../utils/validators";
 import getGenericServerError from "../utils/getGenericServerError";
-import { sendDeleteUserConfirmationEmail, sendRegisterConfirmationEmail } from "../utils/sendEmail";
+import { sendDeleteUserConfirmationEmail, sendRegisterConfirmationEmail, sendResetPasswordConfirmationEmail } from "../utils/sendEmail";
 import { v4 as uuid } from "uuid";
-import { getDeleteUserConfirmationKey, getRegisterConfirmationKey } from "../redis/keys";
+import { getDeleteUserConfirmationKey, getRegisterConfirmationKey, getResetPasswordConfirmationKey } from "../redis/keys";
 import isAuth from "../middlewares/isAuth";
 import destroySession from "../utils/destroySession";
 import deleteUserInDb from "../utils/deleteUserInDb";
@@ -89,7 +89,9 @@ export default class UserResolver {
             user.currentSubscription = subscription.type;
         }
 
-        user.save();
+        try {
+            await user.save();
+        } catch(e) { console.error(e) }
 
         return user.currentSubscription;
     }
@@ -175,9 +177,77 @@ export default class UserResolver {
         }
 
         user.confirmed = true;
-        await user.save();
+        try {
+            await user.save();
+        } catch(e) {
+            return new FormErrors([ getGenericServerError(e) ]);
+        }
         await redis.del(key);
 
+        req.session.userId = user.id;
+        req.session.clientId = clientId;
+
+        return user;
+    }
+
+    @Mutation(() => BooleanFormResponse)
+    async resetPassword(
+        @Arg("email") email: string,
+        @Arg("password") password: string,
+        @Ctx() { redis }: MyContext
+    ): Promise<typeof BooleanFormResponse> {
+        const errors: FormError[] = [];
+        pushFieldError(errors, "email", email);
+        pushFieldError(errors, "password", password);
+        if (errors.length) return new FormErrors(errors);
+
+        let user;
+        try {
+            user = await User.findOne({ email });
+        } catch(e) {
+            return new FormErrors([ getGenericServerError(e) ]);
+        }
+
+        if (!user) return new BooleanResponse(true);
+
+        const token = uuid();
+        const hash = await argon2.hash(password);
+        const oneDayInMs = 1000 * 3600 * 24;
+        try {
+            await redis.set(getResetPasswordConfirmationKey(token), JSON.stringify({ id: user.id, hash }), "ex", oneDayInMs);
+            await sendResetPasswordConfirmationEmail(user.username, user.email, token);
+        } catch(e) {
+            console.error("reset password", e);
+            return new BooleanResponse(false);
+        }
+
+        return new BooleanResponse(true);
+    }
+
+    @Mutation(() => UserFormResponse)
+    async confirmResetPassword(
+        @Arg("token") token: string,
+        @Ctx() { req, redis }: MyContext
+    ): Promise<typeof UserFormResponse> {
+
+        const key = getResetPasswordConfirmationKey(token);
+        const data = await redis.get(key);
+        if (!data) return new FormErrors([{ field: "token", message: "Token expired" }]);
+        const { id: userId, hash } = JSON.parse(data);
+
+        const user = await User.findOne(parseInt(userId));
+        if (!user) return new FormErrors([{ field: "token", message: "User no longer exists" }]);
+
+        user.password = hash;
+
+        try {
+            await user.save();
+        } catch(e) {
+            return new FormErrors([ getGenericServerError(e) ]);
+        }
+        await redis.del(key);
+
+        const clientId = user.id.toString();
         req.session.userId = user.id;
         req.session.clientId = clientId;
 
@@ -197,7 +267,7 @@ export default class UserResolver {
 
         // Wait >= 0.5s and < 0.75s
         // Makes it harder to know if a user has been found
-        // Prevents bruteforce attack
+        // May prevents some bruteforce attack
         const waitTime = (Math.random() / 4 + 0.5) * 1000;
         await new Promise(resolve => setTimeout(resolve, waitTime));
 
@@ -213,7 +283,6 @@ export default class UserResolver {
         if (!user.confirmed) return new FormErrors([{ message: "Registration not finished, please validate your email first." }]);
 
         const valid = await argon2.verify(user.password, password);
-        //TODO If the user exist (or not btw) ask if he need help
         if (!valid) return new FormErrors([{ message: "Wrong email or password." }]);
 
         req.session.userId = user.id;

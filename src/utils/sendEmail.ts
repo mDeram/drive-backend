@@ -51,6 +51,28 @@ export const sendRegisterConfirmationEmail = async (name: string, to: string, to
     `);
 }
 
+export const sendResetPasswordConfirmationEmail = async (name: string, to: string, token: string) => {
+    const confirmationUrl = process.env.FRONT_URL + "/reset-password-confirmation?token=" + token;
+
+    sendEmail(to, "Mderam Drive Account Recovery", `
+        <!DOCTYPE html>
+        <html lang="en">
+        <body>
+            <b>Hello ${name},</b><br/>
+            Almost done! To change your password, click on the link bellow:<br/>
+            <br/>
+            <b><a href="${confirmationUrl}">${confirmationUrl}</a></b><br/>
+            <br/>
+            The link is valid for 1 day, after that you will have to reset your password again,
+            if you have not made this request you can ignore this message.<br/>
+            <br/>
+            Thank you,<br/>
+            Mderam Drive
+        </body>
+        </html>
+    `);
+}
+
 export const sendDeleteUserConfirmationEmail = async (name: string, to: string, token: string) => {
     const confirmationUrl = process.env.FRONT_URL + "/delete-user-confirmation?token=" + token;
     //TODO if the user did not make the request, someone logged in their account, implement a way to log out every user

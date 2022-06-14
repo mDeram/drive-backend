@@ -13,3 +13,6 @@ export const getRegisterConfirmationKey = (token: string) => getRegisterConfirma
 
 export const getDeleteUserConfirmationPrefix = () => getPrefix("deleteUserConfirmation");
 export const getDeleteUserConfirmationKey = (token: string) => getDeleteUserConfirmationPrefix() + token;
+
+export const getResetPasswordConfirmationPrefix = () => getPrefix("resetPasswordConfirmation");
+export const getResetPasswordConfirmationKey = (token: string) => getResetPasswordConfirmationPrefix() + token;
