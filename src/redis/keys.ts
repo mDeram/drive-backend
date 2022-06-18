@@ -10,9 +10,12 @@ export const getDownloadLinkKey = (clientId: string, id: string) => getDownloadL
 
 export const getRegisterConfirmationPrefix = () => getPrefix("registerConfirmation");
 export const getRegisterConfirmationKey = (token: string) => getRegisterConfirmationPrefix() + token;
+export const getRegisterConfirmationTimeoutKey = (clientId: string) => getRegisterConfirmationPrefix() + assemble(["timeout", clientId]);
 
 export const getDeleteUserConfirmationPrefix = () => getPrefix("deleteUserConfirmation");
 export const getDeleteUserConfirmationKey = (token: string) => getDeleteUserConfirmationPrefix() + token;
+export const getDeleteUserConfirmationTimeoutKey = (clientId: string) => getDeleteUserConfirmationPrefix() + assemble(["timeout", clientId]);
 
 export const getResetPasswordConfirmationPrefix = () => getPrefix("resetPasswordConfirmation");
 export const getResetPasswordConfirmationKey = (token: string) => getResetPasswordConfirmationPrefix() + token;
+export const getResetPasswordConfirmationTimeoutKey = (clientId: string) => getResetPasswordConfirmationPrefix() + assemble(["timeout", clientId]);

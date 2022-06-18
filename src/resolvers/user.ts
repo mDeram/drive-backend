@@ -10,11 +10,12 @@ import getFirstValidationError from "../utils/getFirstValidationError";
 import validators from "../utils/validators";
 import getGenericServerError from "../utils/getGenericServerError";
 import { sendDeleteUserConfirmationEmail, sendRegisterConfirmationEmail, sendResetPasswordConfirmationEmail } from "../utils/sendEmail";
-import { v4 as uuid } from "uuid";
-import { getDeleteUserConfirmationKey, getRegisterConfirmationKey, getResetPasswordConfirmationKey } from "../redis/keys";
+import { getDeleteUserConfirmationKey, getDeleteUserConfirmationTimeoutKey, getRegisterConfirmationKey, getRegisterConfirmationTimeoutKey, getResetPasswordConfirmationKey, getResetPasswordConfirmationTimeoutKey } from "../redis/keys";
 import isAuth from "../middlewares/isAuth";
 import destroySession from "../utils/destroySession";
 import deleteUserInDb from "../utils/deleteUserInDb";
+import { sendEmailWithTimeout, getDataFromEmailKey } from "../utils/sendEmailHelper";
+import { FormError, FormErrors } from "../entities/Errors";
 
 function pushFieldError(errors: FormError[], name: string, value: string) {
     const error = getFirstValidationError((validators as any)[name], value);
@@ -24,25 +25,6 @@ function pushFieldError(errors: FormError[], name: string, value: string) {
         field: name,
         message: error
     });
-}
-
-@ObjectType()
-class FormError {
-    @Field({ nullable: true })
-    field?: string;
-
-    @Field()
-    message: string;
-}
-
-@ObjectType()
-class FormErrors {
-    @Field(() => [FormError])
-    errors: FormError[];
-
-    constructor(errors: FormError[]) {
-        this.errors = errors;
-    }
 }
 
 @ObjectType()
@@ -139,11 +121,16 @@ export default class UserResolver {
                 return new FormErrors([{ message: "Email already taken." }]);
         }
 
-        const token = uuid();
-        const oneDayInMs = 1000 * 3600 * 24;
         try {
-            await redis.set(getRegisterConfirmationKey(token), user.id, "ex", oneDayInMs);
-            await sendRegisterConfirmationEmail(user.username, user.email, token);
+            const error = await sendEmailWithTimeout({
+                redis,
+                user,
+                payload: user.id.toString(),
+                getKeyCb:        getRegisterConfirmationKey,
+                getTimeoutKeyCb: getRegisterConfirmationTimeoutKey,
+                sendEmailCb:    sendRegisterConfirmationEmail
+            });
+            if (error) return error;
         } catch(e) {
             console.error("register", e);
             return new BooleanResponse(false);
@@ -158,11 +145,8 @@ export default class UserResolver {
         @Ctx() { req, redis }: MyContext
     ): Promise<typeof UserFormResponse> {
         const key = getRegisterConfirmationKey(token);
-        const userId = await redis.get(key);
-        if (!userId) return new FormErrors([{ field: "token", message: "Token expired" }]);
-
-        const user = await User.findOne(parseInt(userId));
-        if (!user) return new FormErrors([{ field: "token", message: "User no longer exists" }]);
+        const [error, user] = await getDataFromEmailKey({ redis, key, parseCb: (data) => [data, null] });
+        if (error) return error;
 
         const clientId = user.id.toString();
 
@@ -210,12 +194,17 @@ export default class UserResolver {
 
         if (!user) return new BooleanResponse(true);
 
-        const token = uuid();
         const hash = await argon2.hash(password);
-        const oneDayInMs = 1000 * 3600 * 24;
         try {
-            await redis.set(getResetPasswordConfirmationKey(token), JSON.stringify({ id: user.id, hash }), "ex", oneDayInMs);
-            await sendResetPasswordConfirmationEmail(user.username, user.email, token);
+            const error = await sendEmailWithTimeout({
+                redis,
+                user,
+                payload: JSON.stringify({ id: user.id, hash }),
+                getKeyCb:        getResetPasswordConfirmationKey,
+                getTimeoutKeyCb: getResetPasswordConfirmationTimeoutKey,
+                sendEmailCb:    sendResetPasswordConfirmationEmail
+            });
+            if (error) return error;
         } catch(e) {
             console.error("reset password", e);
             return new BooleanResponse(false);
@@ -229,14 +218,12 @@ export default class UserResolver {
         @Arg("token") token: string,
         @Ctx() { req, redis }: MyContext
     ): Promise<typeof UserFormResponse> {
-
         const key = getResetPasswordConfirmationKey(token);
-        const data = await redis.get(key);
-        if (!data) return new FormErrors([{ field: "token", message: "Token expired" }]);
-        const { id: userId, hash } = JSON.parse(data);
-
-        const user = await User.findOne(parseInt(userId));
-        if (!user) return new FormErrors([{ field: "token", message: "User no longer exists" }]);
+        const [error, user, hash] = await getDataFromEmailKey({ redis, key, parseCb: (value: string) => {
+            const parsed = JSON.parse(value);
+            return [parsed.id, parsed.hash as string];
+        }});
+        if (error) return error;
 
         user.password = hash;
 
@@ -312,11 +299,16 @@ export default class UserResolver {
         const valid = await argon2.verify(user.password, password);
         if (!valid) return new FormErrors([{ message: "Wrong password." }]);
 
-        const token = uuid();
-        const oneDayInMs = 1000 * 3600 * 24;
         try {
-            await redis.set(getDeleteUserConfirmationKey(token), user.id, "ex", oneDayInMs);
-            await sendDeleteUserConfirmationEmail(user.username, user.email, token);
+            const error = await sendEmailWithTimeout({
+                redis,
+                user,
+                payload: user.id.toString(),
+                getKeyCb:        getDeleteUserConfirmationKey,
+                getTimeoutKeyCb: getDeleteUserConfirmationTimeoutKey,
+                sendEmailCb:    sendDeleteUserConfirmationEmail
+            });
+            if (error) return error;
         } catch(e) {
             console.error("deleteUser", e);
             return new FormErrors([{ message: "An error occured, try again later." }]);
@@ -331,11 +323,8 @@ export default class UserResolver {
         @Ctx() { req, res, redis }: MyContext
     ): Promise<typeof BooleanFormResponse> {
         const key = getDeleteUserConfirmationKey(token);
-        const userId = await redis.get(key);
-        if (!userId) return new FormErrors([{ field: "token", message: "Token expired" }]);
-
-        const user = await User.findOne(parseInt(userId));
-        if (!user) return new FormErrors([{ field: "token", message: "User no longer exists" }]);
+        const [error, user] = await getDataFromEmailKey({ redis, key, parseCb: (data) => [data, null] });
+        if (error) return error;
 
         const clientId = user.id.toString();
 
