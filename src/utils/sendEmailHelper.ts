@@ -10,7 +10,7 @@ interface sendEmailWithTimeoutProps {
     payload: string;
     getKeyCb: (token: string) => string;
     getTimeoutKeyCb: (userId: string) => string;
-    sendEmailCb: (name: string, to: string, token: string) => Promise<void>;
+    sendEmailCb: (name: string, to: string, token: string) => Promise<boolean>;
 }
 
 export const sendEmailWithTimeout = async ({
@@ -22,18 +22,23 @@ export const sendEmailWithTimeout = async ({
     sendEmailCb
 }: sendEmailWithTimeoutProps): Promise<FormErrors | false> => {
     const token = uuid();
-    const oneDayInMs = 1000 * 3600 * 24;
-    const tenMinutesInMs = 1000 * 60 * 10;
+    const oneDayInSecond = 3600 * 24;
+    const tenMinutesInSecond = 60 * 10;
     const key = getKeyCb(token);
     const userId = user.id.toString();
 
     const timeoutKey = getTimeoutKeyCb(userId);
     if (await redis.get(timeoutKey))
-        return new FormErrors([{ message: "We just sent you a message, try again later" }]);
+        return new FormErrors([{ message: "We just sent you an email, try again later" }]);
 
-    await redis.set(timeoutKey, key, "ex", tenMinutesInMs)
-    await redis.set(key, payload, "ex", oneDayInMs);
-    await sendEmailCb(user.username, user.email, token);
+    await redis.set(key, payload, "ex", oneDayInSecond);
+
+    const sent = await sendEmailCb(user.username, user.email, token);
+    if (!sent)
+        return new FormErrors([{ message: "We could not send you an email, try again later" }]);
+
+    await redis.set(timeoutKey, key, "ex", tenMinutesInSecond)
+
     return false;
 }
 

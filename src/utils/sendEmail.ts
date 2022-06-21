@@ -1,38 +1,35 @@
-import nodemailer from "nodemailer";
+import axios from "axios";
 import { ___prod___ } from "../constants";
 
 if (!process.env.FRONT_URL) throw new Error("Missing environment variable FRONT_URL");
+if (!process.env.MAIL_ENDPOINT) throw new Error("Missing environment variable MAIL_ENDPOINT");
+const url = process.env.MAIL_ENDPOINT;
 
-const sendEmail = async (to: string, subject: string, html: string) => {
-    const test = !___prod___ && to.endsWith("@test.com");
-
-    const transporter = nodemailer.createTransport({
-        host: !___prod___ ? "127.0.0.1" : "host.docker.internal",
-        port: test ? 7777 : 1025,
-        secure: false,
-        auth: {
-            user: test ? undefined : process.env.MAIL_NAME,
-            pass: test ? undefined : process.env.MAIL_PASS
-        },
-        tls: {
-            rejectUnauthorized: false
-        }
-    });
-
-    const info = await transporter.sendMail({
-        from: process.env.MAIL_NAME,
+const sendEmail = async (to: string, subject: string, html: string): Promise<boolean> => {
+    const result = await axios.post(url, {
         to,
         subject,
-        html
+        content: html
+    }, {
+        headers: {
+            "Email-Server-Name": "drive",
+            "Email-Server-Secret": process.env.MAIL_SECRET || ""
+        },
+        validateStatus: () => true
     });
 
-    console.log("Message sent: ", info.messageId);
+    if (result.status !== 200) {
+        console.error("send email", result.status, result.data);
+        return false;
+    }
+
+    return true;
 }
 
-export const sendRegisterConfirmationEmail = async (name: string, to: string, token: string) => {
+export const sendRegisterConfirmationEmail = (name: string, to: string, token: string) => {
     const confirmationUrl = process.env.FRONT_URL + "/register-confirmation?token=" + token;
 
-    sendEmail(to, "Mderam Drive Account Creation", `
+    return sendEmail(to, "Mderam Drive Account Creation", `
         <!DOCTYPE html>
         <html lang="en">
         <body>
@@ -51,10 +48,10 @@ export const sendRegisterConfirmationEmail = async (name: string, to: string, to
     `);
 }
 
-export const sendResetPasswordConfirmationEmail = async (name: string, to: string, token: string) => {
+export const sendResetPasswordConfirmationEmail = (name: string, to: string, token: string) => {
     const confirmationUrl = process.env.FRONT_URL + "/reset-password-confirmation?token=" + token;
 
-    sendEmail(to, "Mderam Drive Account Recovery", `
+    return sendEmail(to, "Mderam Drive Account Recovery", `
         <!DOCTYPE html>
         <html lang="en">
         <body>
@@ -73,12 +70,12 @@ export const sendResetPasswordConfirmationEmail = async (name: string, to: strin
     `);
 }
 
-export const sendDeleteUserConfirmationEmail = async (name: string, to: string, token: string) => {
+export const sendDeleteUserConfirmationEmail = (name: string, to: string, token: string) => {
     const confirmationUrl = process.env.FRONT_URL + "/delete-user-confirmation?token=" + token;
     //TODO if the user did not make the request, someone logged in their account, implement a way to log out every user
     //logged in this account and also implement a change password feature.
 
-    sendEmail(to, "Mderam Drive Account Deletion", `
+    return sendEmail(to, "Mderam Drive Account Deletion", `
         <!DOCTYPE html>
         <html lang="en">
         <body>
