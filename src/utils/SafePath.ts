@@ -149,7 +149,6 @@ class SafePath {
      * Returns a boolean indicating if the path if equal to DRIVE_PATH + clientId
      */
     isRootPath(): boolean {
-        //console.log(this.#basePath, this.#path);
         return this.#basePath === this.#path;
     }
 

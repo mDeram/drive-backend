@@ -1,35 +1,47 @@
-import axios from "axios";
 import { ___prod___ } from "../constants";
+import formData from "form-data";
+import Mailgun from "mailgun.js";
+import sendTestMail from "./sendTestEmail";
 
 if (!process.env.FRONT_URL) throw new Error("Missing environment variable FRONT_URL");
-if (!process.env.MAIL_ENDPOINT) throw new Error("Missing environment variable MAIL_ENDPOINT");
-const url = process.env.MAIL_ENDPOINT;
+if (!process.env.MAILGUN_API_KEY) throw new Error("Missing environment variable MAILGUN_API_KEY");
 
-const sendEmail = async (to: string, subject: string, html: string): Promise<boolean> => {
-    const result = await axios.post(url, {
-        to,
-        subject,
-        content: html
-    }, {
-        headers: {
-            "Email-Server-Name": "drive",
-            "Email-Server-Secret": process.env.MAIL_SECRET || ""
-        },
-        validateStatus: () => true
-    });
+const DOMAIN = "mderam.com";
+const mailgun = new Mailgun(formData);
+const mg = mailgun.client({
+    key: process.env.MAILGUN_API_KEY,
+    username: "mDeram",
+    url: "https://api.eu.mailgun.net"
+});
 
-    if (result.status !== 200) {
-        console.error("send email", result.status, result.data);
+export interface Email {
+    to: string
+    subject: string
+    html: string
+}
+
+const sendEmail = async (email: Email): Promise<boolean> => {
+    if (!___prod___ && email.to.endsWith("@test.com")) return sendTestMail(email);
+
+    try {
+        const msg = await mg.messages.create(DOMAIN, {
+            from: "Mderam Drive <drive@mderam.com>",
+            ...email
+        })
+        return msg.status === 200;
+    } catch(e) {
+        console.error("send email", e);
         return false;
     }
-
-    return true;
 }
 
 export const sendRegisterConfirmationEmail = (name: string, to: string, token: string) => {
     const confirmationUrl = process.env.FRONT_URL + "/register-confirmation?token=" + token;
 
-    return sendEmail(to, "Mderam Drive Account Creation", `
+    return sendEmail({
+        to,
+        subject: "Mderam Drive Account Creation",
+        html: `
         <!DOCTYPE html>
         <html lang="en">
         <body>
@@ -45,13 +57,16 @@ export const sendRegisterConfirmationEmail = (name: string, to: string, token: s
             Mderam Drive
         </body>
         </html>
-    `);
+    `});
 }
 
 export const sendResetPasswordConfirmationEmail = (name: string, to: string, token: string) => {
     const confirmationUrl = process.env.FRONT_URL + "/reset-password-confirmation?token=" + token;
 
-    return sendEmail(to, "Mderam Drive Account Recovery", `
+    return sendEmail({
+        to,
+        subject: "Mderam Drive Account Recovery",
+        html: `
         <!DOCTYPE html>
         <html lang="en">
         <body>
@@ -67,7 +82,7 @@ export const sendResetPasswordConfirmationEmail = (name: string, to: string, tok
             Mderam Drive
         </body>
         </html>
-    `);
+    `});
 }
 
 export const sendDeleteUserConfirmationEmail = (name: string, to: string, token: string) => {
@@ -75,7 +90,10 @@ export const sendDeleteUserConfirmationEmail = (name: string, to: string, token:
     //TODO if the user did not make the request, someone logged in their account, implement a way to log out every user
     //logged in this account and also implement a change password feature.
 
-    return sendEmail(to, "Mderam Drive Account Deletion", `
+    return sendEmail({
+        to,
+        subject: "Mderam Drive Account Deletion",
+        html: `
         <!DOCTYPE html>
         <html lang="en">
         <body>
@@ -96,7 +114,7 @@ export const sendDeleteUserConfirmationEmail = (name: string, to: string, token:
             Mderam Drive
         </body>
         </html>
-    `);
+    `});
 }
 
 export default sendEmail;
