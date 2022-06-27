@@ -11,6 +11,10 @@ RUN pnpm install --production=false --frozen-lockfile
 COPY . .
 RUN pnpm run build
 
+ENV DRIVE_DATA /home/node/data
+
+USER node
+RUN mkdir -p "$DRIVE_DATA"
+
 EXPOSE 8000
 CMD ["node", "dist/index.js"]
-USER node

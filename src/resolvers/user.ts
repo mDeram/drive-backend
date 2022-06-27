@@ -153,6 +153,8 @@ export default class UserResolver {
         try {
             await mkDefaultDir(clientId);
         } catch(e) {
+            console.error(e);
+
             try {
                 await rmClientDir(clientId);
             } catch(e) { console.error(e) }
