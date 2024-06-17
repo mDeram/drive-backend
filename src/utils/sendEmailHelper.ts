@@ -3,6 +3,7 @@ import User from "../entities/User";
 import { v4 as uuid } from "uuid";
 import { FormErrors } from "../entities/Errors";
 import getGenericServerError from "./getGenericServerError";
+import { RequestSession } from "../types";
 
 interface sendEmailWithTimeoutProps {
     redis: Redis;
@@ -65,4 +66,11 @@ export const getDataFromEmailKey = async <T = null>({
     } catch(e) {
         return [new FormErrors([ getGenericServerError(e) ]), null];
     }
+}
+
+export const getUserEmail = async (req: RequestSession) => {
+    const id = req.session.userId;
+    if (!id) return;
+
+    return (await User.findOne(id))?.email;
 }

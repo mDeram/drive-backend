@@ -15,9 +15,10 @@ const mg = mailgun.client({
 });
 
 export interface Email {
-    to: string
-    subject: string
-    html: string
+    to: string;
+    subject: string;
+    html?: string;
+    text?: string;
 }
 
 const sendEmail = async (email: Email): Promise<boolean> => {
@@ -33,6 +34,17 @@ const sendEmail = async (email: Email): Promise<boolean> => {
         console.error("send email", e);
         return false;
     }
+}
+
+export const sendContactEmail = (from: string, subject: string, message: string) => {
+    return sendEmail({
+        to: "drive@mderam.com",
+        subject: `Contact - ${subject}`,
+        text: `
+            From: ${from}
+
+            Message: ${message}
+    `});
 }
 
 export const sendRegisterConfirmationEmail = (name: string, to: string, token: string) => {

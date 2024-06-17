@@ -9,12 +9,12 @@ import rmClientDir from "../utils/rmDefaultDir";
 import getFirstValidationError from "../utils/getFirstValidationError";
 import validators from "../utils/validators";
 import getGenericServerError from "../utils/getGenericServerError";
-import { sendDeleteUserConfirmationEmail, sendRegisterConfirmationEmail, sendResetPasswordConfirmationEmail } from "../utils/sendEmail";
+import { sendContactEmail, sendDeleteUserConfirmationEmail, sendRegisterConfirmationEmail, sendResetPasswordConfirmationEmail } from "../utils/sendEmail";
 import { getDeleteUserConfirmationKey, getDeleteUserConfirmationTimeoutKey, getRegisterConfirmationKey, getRegisterConfirmationTimeoutKey, getResetPasswordConfirmationKey, getResetPasswordConfirmationTimeoutKey } from "../redis/keys";
 import isAuth from "../middlewares/isAuth";
 import destroySession from "../utils/destroySession";
 import deleteUserInDb from "../utils/deleteUserInDb";
-import { sendEmailWithTimeout, getDataFromEmailKey } from "../utils/sendEmailHelper";
+import { sendEmailWithTimeout, getDataFromEmailKey, getUserEmail } from "../utils/sendEmailHelper";
 import { FormError, FormErrors } from "../entities/Errors";
 
 function pushFieldError(errors: FormError[], name: string, value: string) {
@@ -334,5 +334,20 @@ export default class UserResolver {
         await rmClientDir(clientId);
 
         return new BooleanResponse(await destroySession(req, res));
+    }
+
+    @Mutation(() => BooleanFormResponse)
+    async contact(
+        @Arg("email") from: string,
+        @Arg("subject") subject: string,
+        @Arg("message") message: string,
+        @Ctx() { req }: MyContext
+    ): Promise<typeof BooleanFormResponse> {
+        const userEmail = await getUserEmail(req);
+        const result = await sendContactEmail(userEmail || from, subject, message);
+
+        if (!result)
+            return new FormErrors([{ message: "We could not send your email, try again later" }]);
+        return new BooleanResponse(true);
     }
 }
