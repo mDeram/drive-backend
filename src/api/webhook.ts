@@ -44,7 +44,7 @@ async function payment(event: Stripe.Event) {
     const user = await User.findOne({ email });
 
     //TODO handle the fact that someone paid without having an account with that email, by sending them an email for e.g.
-    //Send email to claim the payment by connecting to the cloud
+    //Send email to claim the payment by connecting to the drive
     if (!user) return;
 
     const { from, to, error } = getSubscriptionDates(amount);

@@ -4,7 +4,7 @@
     "port": 5432,
     "username": "postgres",
     "password": "Zv8Fc_wP(\"tF<kk&~)J*OK\"|i",
-    "database": "cloud_migrations",
+    "database": "drive_migrations",
     "entities": ["src/entities/*.ts"],
     "migrations": ["src/migrations/*.ts"],
     "cli": {

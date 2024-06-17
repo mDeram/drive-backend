@@ -1,4 +1,4 @@
-export const PREFIX = "cloud";
+export const PREFIX = "drive";
 export const assemble = (keys: string[]) => keys.join(":");
 export const getKey = (key: string) => PREFIX + ":" + key;
 export const getPrefix = (key: string) => getKey(key) + ":";
