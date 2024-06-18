@@ -41,7 +41,7 @@ function parseRefundInfo(event: Stripe.Event) {
 async function payment(event: Stripe.Event) {
     const { id, email, amount } = parsePaymentInfo(event);
 
-    const user = await User.findOne({ email });
+    const user = await User.findOneBy({ email });
 
     //TODO handle the fact that someone paid without having an account with that email, by sending them an email for e.g.
     //Send email to claim the payment by connecting to the drive

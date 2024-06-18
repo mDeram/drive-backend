@@ -2,7 +2,7 @@ import "dotenv/config";
 import "reflect-metadata";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from '@apollo/server/express4';
-import { createConnection } from "typeorm";
+import { DataSource } from "typeorm";
 import typeormConfig from "./typeorm.config";
 import express from "express";
 import apolloConfig from "./apollo.config";
@@ -23,7 +23,8 @@ export const redis = !___prod___
     : new Redis("redis");
 
 const main = async () => {
-    const orm = await createConnection(typeormConfig);
+    const orm = new DataSource(typeormConfig);
+    await orm.initialize();
     if (___prod___) await orm.runMigrations();
 
     const app = express();

@@ -59,7 +59,7 @@ export const getDataFromEmailKey = async <T = null>({
         if (!data) return [new FormErrors([{ field: "token", message: "Token expired" }]), null];
 
         const [userId, otherData] = parseCb(data)
-        const user = await User.findOne(userId);
+        const user = await User.findOneBy({ id: parseInt(userId) });
         if (!user) return [new FormErrors([{ field: "token", message: "User no longer exists" }]), null];
 
         return [false, user, otherData];
@@ -72,5 +72,5 @@ export const getUserEmail = async (req: RequestSession) => {
     const id = req.session.userId;
     if (!id) return;
 
-    return (await User.findOne(id))?.email;
+    return (await User.findOneBy({ id }))?.email;
 }

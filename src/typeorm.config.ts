@@ -1,4 +1,4 @@
-import { ConnectionOptions } from "typeorm";
+import { DataSourceOptions } from "typeorm";
 import { ___prod___ } from "./constants";
 import path from "path";
 import User from "./entities/User";
@@ -14,4 +14,4 @@ export default {
     synchronize: !___prod___,
     entities: [User, Subscription],
     migrations: [path.join(__dirname, "./migrations/*")]
-} as ConnectionOptions;
+} satisfies DataSourceOptions;

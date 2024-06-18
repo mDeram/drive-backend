@@ -15,7 +15,7 @@ export default class TestResolver {
         @Arg("inputs") { username, email, password }: RegisterInput,
         @Ctx() { req }: MyContext
     ): Promise<boolean> {
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOneBy({ email });
         if (existingUser) {
             const clientId = existingUser.id.toString();
 
@@ -59,7 +59,7 @@ export default class TestResolver {
         @Arg("password") password: string,
         @Arg("subscription", { defaultValue: false }) subscription: boolean
     ): Promise<boolean> {
-        const user = await User.findOne({ email });
+        const user = await User.findOneBy({ email });
         if (!user) return false;
 
         const valid = await argon2.verify(user.password, password);
@@ -82,7 +82,7 @@ export default class TestResolver {
         @Arg("email") email: string,
         @Ctx() { req, res }: MyContext
     ): Promise<boolean> {
-        const user = await User.findOne({ email });
+        const user = await User.findOneBy({ email });
         if (!user) return false;
 
         const clientId = user.id.toString();

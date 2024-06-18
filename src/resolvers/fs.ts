@@ -138,7 +138,7 @@ export default class FsResolver {
         const diskUsage = await du(clientId);
         if (!diskUsage) return false;
 
-        const user = await User.findOneOrFail(req.session.userId);
+        const user = await User.findOneByOrFail({ id: req.session.userId });
         const maxUsage = getSubscriptionSize(user.currentSubscription);
 
         if (diskUsage > maxUsage) return false;
@@ -228,7 +228,7 @@ export default class FsResolver {
         const diskUsage = await du(clientId);
         if (!diskUsage) return false;
 
-        const user = await User.findOneOrFail(req.session.userId);
+        const user = await User.findOneByOrFail({ id: req.session.userId });
         const maxUsage = getSubscriptionSize(user.currentSubscription);
 
         if (diskUsage > maxUsage) return false;

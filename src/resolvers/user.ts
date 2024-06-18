@@ -89,8 +89,8 @@ export default class UserResolver {
     ): Promise<User | null> {
         if (!req.session.userId) return null;
 
-        //const subscriptions = await Subscription.findOne(user.id);
-        return User.findOneOrFail(req.session.userId);
+        //const subscriptions = await Subscription.findOneBy({ id: user.id });
+        return User.findOneByOrFail({ id: req.session.userId });
     }
 
     @Mutation(() => BooleanFormResponse)
@@ -115,7 +115,7 @@ export default class UserResolver {
                 return new FormErrors([ getGenericServerError(e) ]);
             }
 
-            user = await User.findOne({ email });
+            user = await User.findOneBy({ email });
             // User does not exists or exists but is confirmed already
             if (!user || user.confirmed)
                 return new FormErrors([{ message: "Email already taken." }]);
@@ -189,7 +189,7 @@ export default class UserResolver {
 
         let user;
         try {
-            user = await User.findOne({ email });
+            user = await User.findOneBy({ email });
         } catch(e) {
             return new FormErrors([ getGenericServerError(e) ]);
         }
@@ -262,7 +262,7 @@ export default class UserResolver {
 
         let user;
         try {
-            user = await User.findOne({ email });
+            user = await User.findOneBy({ email });
         } catch(e) {
             return new FormErrors([ getGenericServerError(e) ]);
         }
@@ -295,7 +295,7 @@ export default class UserResolver {
     ): Promise<typeof BooleanFormResponse> {
         const id = req.session.userId!;
 
-        const user = await User.findOne(id);
+        const user = await User.findOneBy({ id });
         if (!user) return new FormErrors([{ message: "Try logging out and logging back in." }]);
 
         const valid = await argon2.verify(user.password, password);
