@@ -32,13 +32,13 @@ export const sendEmailWithTimeout = async ({
     if (await redis.get(timeoutKey))
         return new FormErrors([{ message: "We just sent you an email, try again later" }]);
 
-    await redis.set(key, payload, "ex", oneDayInSecond);
+    await redis.set(key, payload, "EX", oneDayInSecond);
 
     const sent = await sendEmailCb(user.username, user.email, token);
     if (!sent)
         return new FormErrors([{ message: "We could not send you an email, try again later" }]);
 
-    await redis.set(timeoutKey, key, "ex", tenMinutesInSecond)
+    await redis.set(timeoutKey, key, "EX", tenMinutesInSecond)
 
     return false;
 }

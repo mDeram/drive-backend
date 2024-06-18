@@ -1,34 +1,27 @@
-import { Config } from "apollo-server-express";
 import { ___prod___ } from "./constants";
 import { buildSchema } from "type-graphql";
 import {
-    ApolloServerPluginLandingPageDisabled,
-    ApolloServerPluginLandingPageGraphQLPlayground
-} from "apollo-server-core";
-
+    ApolloServerPluginLandingPageDisabled ,
+} from '@apollo/server/plugin/disabled';
 import { MyContext } from "./types";
 import FsResolver from "./resolvers/fs";
 import UserResolver from "./resolvers/user";
-import { Connection } from "typeorm";
-import { Redis } from "ioredis";
 import TestResolver from "./resolvers/test";
+import { ApolloServerOptions, ApolloServerPlugin } from "@apollo/server";
 
-export default async (orm: Connection, redis: Redis): Promise<Config> => {
-    const resolvers: Function[] = [FsResolver, UserResolver];
-    if (!___prod___) resolvers.push(TestResolver);
+const plugins: ApolloServerPlugin[] = [];
+if (___prod___) plugins.push(ApolloServerPluginLandingPageDisabled());
+
+export default async (): Promise<ApolloServerOptions<MyContext>> => {
+    const resolvers = ___prod___
+        ? [FsResolver, UserResolver] as const
+        : [FsResolver, UserResolver, TestResolver] as const;
+
+    const schema = await buildSchema({ resolvers });
 
     return {
-        schema: await buildSchema({
-            resolvers: resolvers as any
-        }),
-        plugins: [
-            ___prod___
-                ? ApolloServerPluginLandingPageDisabled()
-                : ApolloServerPluginLandingPageGraphQLPlayground()
-        ],
-        context: ({ req, res }): MyContext => ({ req, res, orm, redis }),
+        schema,
+        plugins,
         csrfPrevention: true
-        /*formatError: (err) => {
-        }*/
     };
 };

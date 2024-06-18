@@ -1,7 +1,7 @@
 import { Arg, Ctx, Int, Mutation, Query, UseMiddleware } from "type-graphql";
 import { promises as fs } from "fs";
 import pathLib from "path";
-import { FileUpload, GraphQLUpload } from "graphql-upload";
+//import GraphQLUpload, { FileUpload } from "graphql-upload/GraphQLUpload.mjs";
 import { finished } from "stream/promises";
 import DirectoryItem from "../entities/DirectoryItem";
 import { find, grep } from "../utils/search";
@@ -120,6 +120,7 @@ export default class FsResolver {
         }));
     }
 
+    /*
     @Mutation(_returns => Boolean)
     @UseMiddleware(isAuth)
     async upload(
@@ -153,10 +154,11 @@ export default class FsResolver {
                 outFile = await fs.open(safeOutPath.getServerPath(), "wx"); // "wx" -> write, fail if path exists already
             } catch(e) {
                 if (e.code !== "EEXIST") {
-                    console.error("rm upload", e)
+                    console.error("file upload cannot write file", e)
                     return false
                 }
 
+                // Filename already exist. So we add a suffix to the filename like myfile(2)
                 const dirname = pathLib.dirname(safeOutPath.get());
                 const basename = pathLib.basename(safeOutPath.get());
                 const extname = pathLib.extname(basename);
@@ -211,6 +213,7 @@ export default class FsResolver {
 
         return true;
     }
+    */
 
     @Mutation(_returns => Boolean)
     @UseMiddleware(isAuth)

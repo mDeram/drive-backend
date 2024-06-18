@@ -1,6 +1,6 @@
 import { ___prod___ } from "../constants";
 import formData from "form-data";
-import Mailgun from "mailgun.js";
+import Mailgun, { MimeMessage } from "mailgun.js";
 import sendTestMail from "./sendTestEmail";
 
 if (!process.env.FRONT_URL) throw new Error("Missing environment variable FRONT_URL");
@@ -14,12 +14,16 @@ const mg = mailgun.client({
     url: "https://api.eu.mailgun.net"
 });
 
-export interface Email {
+type MailContent =
+    { text: string }
+  | { html: string }
+  | { message: MimeMessage }
+  | { template: string };
+
+export type Email = {
     to: string;
     subject: string;
-    html?: string;
-    text?: string;
-}
+} & MailContent;
 
 const sendEmail = async (email: Email): Promise<boolean> => {
     if (!___prod___ && email.to.endsWith("@test.com")) return sendTestMail(email);

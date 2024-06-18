@@ -1,19 +1,22 @@
 import "dotenv/config";
 import "reflect-metadata";
-import { ApolloServer } from "apollo-server-express";
+import { ApolloServer } from "@apollo/server";
+import { expressMiddleware } from '@apollo/server/express4';
 import { createConnection } from "typeorm";
 import typeormConfig from "./typeorm.config";
 import express from "express";
 import apolloConfig from "./apollo.config";
 import session from "express-session";
 import { SESSION_COOKIE, ___prod___ } from "./constants";
-import connectRedis from "connect-redis";
+import RedisStore from "connect-redis";
 import Redis from "ioredis";
-import { graphqlUploadExpress } from "graphql-upload";
+//import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress";
 import cors from "cors";
 import fsApi from "./api/fs";
 import webhook from "./api/webhook";
 import { getSessionPrefix } from "./redis/keys";
+import { MyContext } from "./types";
+import { Request, Response } from "express";
 
 export const redis = !___prod___
     ? new Redis()
@@ -22,8 +25,6 @@ export const redis = !___prod___
 const main = async () => {
     const orm = await createConnection(typeormConfig);
     if (___prod___) await orm.runMigrations();
-
-    const RedisStore = connectRedis(session);
 
     const app = express();
     app.disable("x-powered-by");
@@ -47,7 +48,7 @@ const main = async () => {
         saveUninitialized: false,
     }));
 
-    const apolloServer = new ApolloServer(await apolloConfig(orm, redis));
+    const apolloServer = new ApolloServer(await apolloConfig());
     await apolloServer.start();
 
     const frontUrl = process.env.FRONT_URL || "";
@@ -61,12 +62,15 @@ const main = async () => {
     app.use('/webhook', webhook);
     app.use('/fs', fsApi);
 
-    app.use(graphqlUploadExpress());
+    //app.use(graphqlUploadExpress());
 
-    apolloServer.applyMiddleware({
-        app,
-        cors: corsOptions
-    });
+    app.use(
+        '/graphql',
+        express.json(),
+        expressMiddleware(apolloServer, {
+            context: async ({ req, res }: { req: Request, res: Response }): Promise<MyContext> => ({ req, res, orm, redis }),
+        }),
+    );
 
     const port = process.env.PORT || 3000;
     app.listen(port, () => {

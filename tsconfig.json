@@ -1,17 +1,11 @@
 {
   "compilerOptions": {
     "skipLibCheck": true,
-    "target": "es6",
-    "module": "commonjs",
-    "lib": [
-      "dom",
-      "es6",
-      "es2017",
-      "esnext.asynciterable"
-    ],
+    "target": "es2022",
+    "module": "NodeNext",
+    "lib": ["es2022"],
     "sourceMap": true,
     "outDir": "./dist",
-    "moduleResolution": "node",
     "removeComments": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -22,6 +16,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "allowSyntheticDefaultImports": true,
+    "allowJs": true,
     "esModuleInterop": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
