@@ -22,7 +22,7 @@ const sendTestMail = async (email: Email): Promise<boolean> => {
         console.log("Message sent: %s", info.messageId);
         return true;
     } catch(e) {
-        console.error("send test email", e);
+        console.error("send test email", e, email);
         return false;
     }
 }

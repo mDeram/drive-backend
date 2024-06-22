@@ -2,7 +2,6 @@ import { Arg, Ctx, Int, Mutation, Query, UseMiddleware } from "type-graphql";
 import { promises as fs } from "fs";
 import pathLib from "path";
 //import GraphQLUpload, { FileUpload } from "graphql-upload/GraphQLUpload.mjs";
-import { finished } from "stream/promises";
 import DirectoryItem from "../entities/DirectoryItem";
 import { find, grep } from "../utils/search";
 import SafePath from "../utils/SafePath";
