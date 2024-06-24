@@ -18,9 +18,7 @@ import { getSessionPrefix } from "./redis/keys";
 import { MyContext } from "./types";
 import { Request, Response } from "express";
 
-export const redis = !___prod___
-    ? new Redis()
-    : new Redis("redis");
+export const redis = new Redis();
 
 const main = async () => {
     const orm = new DataSource(typeormConfig);
