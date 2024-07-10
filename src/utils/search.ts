@@ -2,21 +2,26 @@ import { exec } from "child_process";
 import { promisify } from "util";
 const execAsync = promisify(exec);
 
-export const find = async (path: string, pattern: string) => {
-    const { stdout, stderr } = await execAsync(
-        `find "${path}" -iname "*${pattern}*"`
-    );
+export const find = async (path: string, pattern: string): Promise<string[]> => {
+    try {
+        const { stdout } = await execAsync(
+            `find "${path}" -iname "*${pattern}*"`
+        );
 
-    if (stderr) throw new Error(stderr);
-    return stdout;
+        return stdout.split("\n").filter(item => item !== "");
+    } catch (err) {}
+
+    return [];
 }
 
-export const grep = async (path: string, pattern: string) => {
-    const { stdout, stderr } = await execAsync(
-        `grep --recursive --ignore-case --text --only-matching --fixed-string --files-with-matches --exclude="*.png" --exclude="*.gif" --exclude="*.jpg" "${pattern}" "${path}"`
-    );
+export const grep = async (path: string, pattern: string): Promise<string[]> => {
+    try {
+        const { stdout } = await execAsync(
+            `grep --recursive --ignore-case --text --only-matching --fixed-string --files-with-matches --exclude="*.png" --exclude="*.gif" --exclude="*.jpg" "${pattern}" "${path}"`
+        );
 
-    if (stderr) throw new Error(stderr);
-    return stdout;
+        return stdout.split("\n").filter(item => item !== "");
+    } catch (err) {}
+
+    return [];
 }
-

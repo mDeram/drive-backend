@@ -257,23 +257,13 @@ export default class FsResolver {
     ): Promise<SearchDirectoryItem[]> {
         const sp = new SafePath(req.session.clientId!, FILES_DIR);
 
-        let results: string | null = null;
-
-        try { results = await find(sp.getServerPath(), pattern) } catch(e) {}
-
-        if (!results) {
-            try { results = await grep(sp.getServerPath(), pattern) } catch(e) {}
+        let filenames = await find(sp.getServerPath(), pattern);
+        if (filenames.length === 0) {
+            filenames = await grep(sp.getServerPath(), pattern);
         }
 
-        if (!results) return [];
-
-        const resultArray = results.split("\n");
-
-        // Remove last element (empty string)
-        resultArray.pop();
-
         return (await Promise.all(
-            resultArray.map(async (filename) => {
+            filenames.map(async (filename) => {
                 const safePath = new SafePath(req.session.clientId!, filename, "server");
                 const clientPath = safePath.get();
                 const stat = await fs.stat(safePath.getServerPath());
